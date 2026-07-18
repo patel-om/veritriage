@@ -88,23 +88,32 @@ class TestRegistry:
 
     def test_new_parser_plugs_in_without_touching_existing_code(self, tmp_path: Path):
         @register
-        class CoverageParser(Parser):
-            name = "test_coverage"
-            file_patterns = ("coverage.txt",)
+        class WaveformMetaParser(Parser):
+            name = "test_waveform_meta"
+            file_patterns = ("waveform.meta",)
 
             def parse(self, path):  # pragma: no cover - never called here
                 raise NotImplementedError
 
         try:
-            assert "test_coverage" in available_parsers()
-            cov = tmp_path / "coverage.txt"
-            cov.write_text("")
-            assert isinstance(find_parser(cov), CoverageParser)
+            assert "test_waveform_meta" in available_parsers()
+            meta = tmp_path / "waveform.meta"
+            meta.write_text("")
+            assert isinstance(find_parser(meta), WaveformMetaParser)
         finally:
             # Keep the global registry clean for other tests.
             from traceiq.parsers.registry import _REGISTRY
 
-            _REGISTRY.pop("test_coverage", None)
+            _REGISTRY.pop("test_waveform_meta", None)
+
+    def test_specific_pattern_beats_generic_glob(self, tmp_path: Path):
+        # compile.log matches both the compile parser's exact name and the
+        # simulation parser's '*.log'; specificity must pick the compile parser.
+        from traceiq.parsers import CompileLogParser
+
+        log = tmp_path / "compile.log"
+        log.write_text("Error-[SE] Syntax error\n")
+        assert isinstance(find_parser(log), CompileLogParser)
 
     def test_duplicate_name_rejected(self):
         with pytest.raises(ValueError, match="already registered"):

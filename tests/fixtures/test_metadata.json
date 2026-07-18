@@ -1,0 +1,7 @@
+{
+  "test_name": "axi_random_test",
+  "seed": 987654321,
+  "status": "failed",
+  "simulator": "vcs",
+  "duration_s": 412
+}

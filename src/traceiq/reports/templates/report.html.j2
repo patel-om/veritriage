@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TraceIQ - {{ report.summary.test_name or report.input_file }}</title>
+<title>TraceIQ - {{ report.summary.test_name or report.input_files[0] }}</title>
 <style>
   :root {
     color-scheme: light;
@@ -144,9 +144,9 @@
   <p class="meta">
     {% if report.summary.test_name %}Test <code>{{ report.summary.test_name }}</code> ·{% endif %}
     {% if report.summary.simulator %}{{ report.summary.simulator }} ·{% endif %}
-    <code>{{ report.input_file }}</code> ·
+    {% for f in report.input_files %}<code>{{ f }}</code>{% if not loop.last %} + {% endif %}{% endfor %} ·
     generated {{ report.generated_at.strftime("%Y-%m-%d %H:%M UTC") }} ·
-    parser <code>{{ report.parser_name }}</code>
+    parsers <code>{{ report.parser_names | join(", ") }}</code>
   </p>
 
   <section>
@@ -157,6 +157,37 @@
       <div class="tile"><div class="label"><span class="dot warning"></span>Warnings</div><div class="value">{{ warning_count }}</div></div>
       <div class="tile"><div class="label"><span class="dot muted"></span>Failed assertions</div><div class="value">{{ assertion_count }}</div></div>
       <div class="tile"><div class="label"><span class="dot muted"></span>Log lines</div><div class="value">{{ report.summary.total_lines }}</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Evidence Graph</h2>
+    <div class="card">
+      <p style="margin: 0 0 12px; color: var(--ink-2);">
+        {{ report.graph_stats.node_count }} evidence nodes and {{ report.graph_stats.edge_count }}
+        relationships extracted from {{ report.input_files | length }} artifact{{ "s" if report.input_files | length != 1 }}.
+        Full graph in <code>evidence_graph.json</code>; every conclusion below cites node IDs from it.
+      </p>
+      <table>
+        <thead><tr><th>Artifact type</th><th>Nodes</th></tr></thead>
+        <tbody>
+        {% for artifact_type, count in report.graph_stats.nodes_by_type.items() %}
+          <tr><td>{{ artifact_type.replace("_", " ") }}</td><td class="num">{{ count }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% if report.graph_stats.edges_by_relation %}
+      <div style="margin-top: 14px;">
+        <table>
+          <thead><tr><th>Relationship</th><th>Edges</th></tr></thead>
+          <tbody>
+          {% for relation, count in report.graph_stats.edges_by_relation.items() %}
+            <tr><td>{{ relation.replace("_", " ") }}</td><td class="num">{{ count }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
     </div>
   </section>
 
@@ -197,6 +228,7 @@
           <div class="ev-when">
             {% if ev.sim_time %}t = {{ ev.sim_time }}{% endif %}
             {% if ev.line_number %}{% if ev.sim_time %} · {% endif %}log line {{ ev.line_number }}{% endif %}
+            {% if ev.node_id %} · <code>{{ ev.node_id }}</code>{% endif %}
           </div>
           <p class="ev-desc">{{ ev.description }}</p>
         </li>

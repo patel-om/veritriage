@@ -15,21 +15,28 @@ Python 3.11+. Type hints and docstrings everywhere; keep rules and parsers pure
 ## Adding a parser
 
 1. Create `src/traceiq/parsers/<artifact>.py`.
-2. Subclass `Parser`, set `name` and `file_patterns`, implement
-   `parse(path) -> ParseResult`, and decorate with `@register`.
+2. Subclass `Parser`, set `name`, `artifact_type`, and `file_patterns`,
+   implement `parse(path) -> ParseResult`, and decorate with `@register`.
+   Message-oriented artifacts get graph emission for free from the default
+   `emit_evidence`; other shapes (coverage, metadata) override it to emit
+   their own `GraphFragment`.
 3. Import it from `src/traceiq/parsers/__init__.py` (registration happens on
    import).
-4. Add a fixture log under `tests/fixtures/` and tests asserting the events,
-   failures, and summary it extracts.
+4. If cross-artifact links make sense, add one correlation pass in
+   `src/traceiq/graph/builder.py` with a rationale on every edge.
+5. Add a fixture under `tests/fixtures/` and tests asserting the extraction,
+   the emitted evidence, and any correlation.
 
 ```python
+from traceiq.graph.model import ArtifactType
 from traceiq.parsers.base import Parser, ParseResult
 from traceiq.parsers.registry import register
 
 @register
-class CompileLogParser(Parser):
-    name = "compile_log"
-    file_patterns = ("compile.log",)
+class WaveformMetadataParser(Parser):
+    name = "waveform_metadata"
+    artifact_type = ArtifactType.WAVEFORM_METADATA
+    file_patterns = ("waves.meta.json",)
 
     def parse(self, path):
         ...
@@ -42,10 +49,12 @@ Everything a parser emits must be traceable to a specific line.
 
 1. Add a `Rule` subclass in `src/traceiq/rules/builtin.py` (or a new module).
 2. Set `name` and `category`, implement
-   `evaluate(parse_result) -> ClassificationResult | None`.
+   `evaluate(graph: EvidenceGraph) -> ClassificationResult | None`. Rules
+   query the graph only (`graph.failing()`, `graph.nodes_of_type(...)`,
+   attributes); they never read files or ParseResults.
 3. Abstain (`None`) unless the signature genuinely matches. Every verdict must
-   include evidence (use `self._result(...)`) and at least one recommendation
-   with a rationale.
+   include evidence (use `self._result(nodes=...)`, which records node IDs)
+   and at least one recommendation with a rationale.
 4. Pick a confidence consistent with the existing ordering (specific ≻ generic)
    and add the rule to `default_rules()`.
 5. Add a fixture log that triggers it and a test in `tests/test_rules.py`,

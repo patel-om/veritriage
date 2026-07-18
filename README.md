@@ -1,37 +1,44 @@
 # TraceIQ
 
-**Verification intelligence for semiconductor regression debug.** TraceIQ turns a raw
-simulation log into structured JSON, a deterministic failure classification with
-confidence and evidence, an engineering-grade HTML report, and suggested next
-debugging steps - in one command.
+**Verification intelligence for semiconductor regression debug.** TraceIQ turns
+raw verification artifacts (simulation logs, compile logs, coverage summaries,
+test metadata) into a normalized **Evidence Graph**, a deterministic failure
+classification with confidence and evidence, an engineering-grade HTML report,
+and suggested next debugging steps - in one command.
 
 ```
-traceiq analyze simulation.log
+traceiq analyze simulation.log coverage.txt test_metadata.json
 ```
 
 ## Why
 
 Today's debug flow after a regression failure is manual: open the log, grep for
-errors, open the waveform, inspect signals, form a hypothesis. TraceIQ automates
-the front half of that loop:
+errors, open the waveform, inspect signals, form a hypothesis. TraceIQ
+automates the front half of that loop:
 
 ```
 Regression failure
-  → Collect artifacts        (simulation.log in v1)
-  → Parse deterministically  (UVM / Questa / VCS / Xcelium / generic)
-  → Normalize                (typed Pydantic models)
-  → Correlate evidence       (rule engine, confidence-ranked)
-  → Report                   (analysis.json + report.html + terminal summary)
-  → Optional AI narrative    (grounded ONLY in extracted evidence)
+  -> Collect artifacts        (sim log, compile log, coverage, test metadata)
+  -> Parse deterministically  (UVM / Questa / VCS / Xcelium / generic)
+  -> Normalize                (Evidence Graph: typed nodes + typed edges)
+  -> Correlate evidence       (temporal, causal, cross-artifact links)
+  -> Classify                 (rule engine over the graph, confidence-ranked)
+  -> Report                   (analysis.json + evidence_graph.json + report.html)
+  -> Optional AI narrative    (reasons ONLY over the graph, cites node IDs)
 ```
 
 **Design principles**
 
 - AI assists engineers; it never replaces engineering judgment.
-- Every conclusion carries evidence: a log line, a sim time, a snippet.
-- Deterministic parsing and classification always run **before** any LLM.
-- Modular plugin architecture: new parsers and rules drop in without touching
-  existing code.
+- The Evidence Graph is the single source of truth: every conclusion carries
+  node IDs that trace to an artifact file and line.
+- Deterministic parsing, graph building, and classification always run
+  **before** any LLM; the AI layer never reads raw files.
+- Modular plugin architecture: new parsers, rules, and correlation passes drop
+  in without touching the rule engine or the AI layer.
+
+See [docs/EVIDENCE_GRAPH.md](docs/EVIDENCE_GRAPH.md) for why this architecture
+improves scalability, explainability, and deterministic reasoning.
 
 ## Installation
 
@@ -46,22 +53,34 @@ pip install -e ".[dev]"     # + test tooling
 ## Usage
 
 ```bash
-# Analyze a log; writes analysis.json and report.html to the current directory
+# Analyze one artifact
 traceiq analyze simulation.log
 
-# Choose an output directory, force a parser, add an AI summary
-traceiq analyze simulation.log -o out/ --parser simulation_log --ai
+# Analyze a whole run: log + coverage + test metadata, correlated in one graph
+traceiq analyze simulation.log compile.log coverage.txt test_metadata.json -o out/
+
+# Add an AI summary grounded in the evidence graph
+traceiq analyze simulation.log -o out/ --ai
 
 # Introspection
 traceiq parsers
 traceiq version
 ```
 
+Each run writes three artifacts to the output directory:
+
+| File | Contents |
+|---|---|
+| `analysis.json` | Classification, confidence, evidence (with graph node IDs), run summary, graph stats |
+| `evidence_graph.json` | The full serialized Evidence Graph: every node and relationship |
+| `report.html` | Self-contained EDA-style dashboard (light/dark), evidence timeline, next steps |
+
 Exit codes: `0` clean run, `1` failure classified (useful for CI gating),
 `2` usage error.
 
 The AI summary uses the Anthropic API (`ANTHROPIC_API_KEY` or an `ant auth login`
-profile) and receives only the deterministic findings - never the raw log.
+profile) and receives only the graph's normalized reasoning view - never raw
+artifact text.
 
 ### Library use
 
@@ -69,37 +88,39 @@ profile) and receives only the deterministic findings - never the raw log.
 from pathlib import Path
 from traceiq.pipeline import analyze
 
-report = analyze(Path("simulation.log"))
-print(report.classification.category, report.classification.confidence)
+outcome = analyze([Path("simulation.log"), Path("coverage.txt")])
+print(outcome.report.classification.category, outcome.report.classification.confidence)
+print(outcome.graph.stats().node_count, "evidence nodes")
 ```
 
-## What v1 classifies
+## What v2 classifies
 
 | Category | Typical signature | Confidence |
 |---|---|---|
-| Compile failure | syntax errors, undeclared identifiers, elaboration failures | 90 |
-| Assertion failure | SVA/checker assertion fired | 90 |
+| Compile failure | dedicated compile-log evidence, syntax errors, undeclared identifiers | 90 |
+| Assertion failure | SVA/checker assertion fired (first-class `assertion` nodes) | 90 |
 | Timeout | phase/watchdog timeout, hung test | 85 |
 | Testbench failure | scoreboard mismatch, compare errors | 80 |
 | Fatal error | fatal message without a more specific diagnosis | 70 |
 | Unknown failure | errors present, no signature matched | 30 |
-| No failure | clean log | 95 |
+| No failure | clean artifacts | 95 |
 
-All rule verdicts (not just the winner) appear in the report as alternatives.
+All rule verdicts (not just the winner) appear in the report as alternatives,
+and every evidence item cites its graph node.
 
-## Scope of v1 - deliberately small
+## Artifact types in the graph
 
-Simulation logs only. No waveform parsing, no RTL parsing, no RAG, no vector
-databases, no multi-agent orchestration. See
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how those land later without
-architectural change, and [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) to add a
-parser or rule in ~30 lines.
+Simulation logs, assertions, coverage, test metadata, and compile logs are
+live today; `waveform_metadata` is a reserved type for the future waveform
+parser. Adding an artifact type is a parser plus an optional correlation pass;
+the rule engine and AI layer are untouched by design
+([checklist](docs/EVIDENCE_GRAPH.md#adding-a-new-artifact-type-checklist)).
 
 ## Roadmap (documented, not built)
 
-Assertion/coverage/compile-log parsers → waveform metadata + FSDB/VCD indexing →
-spec retrieval and git-history correlation → AI reasoning over correlated
-evidence → VS Code extension, Slack integration, GitHub Action, MCP server.
+Waveform metadata + FSDB/VCD indexing -> spec retrieval and git-history
+correlation as new node types -> deeper AI reasoning over the correlated graph
+-> VS Code extension, Slack integration, GitHub Action, MCP server.
 
 ## License
 

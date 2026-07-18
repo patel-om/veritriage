@@ -53,18 +53,34 @@ class LogSummary(BaseModel):
         return self.counts.get(severity, 0)
 
 
+class GraphStats(BaseModel):
+    """Aggregate shape of the Evidence Graph, embedded in the report.
+
+    Keys are plain strings (artifact-type and relation values) so this model
+    stays independent of the graph package; the full graph itself is written
+    to ``evidence_graph.json``.
+    """
+
+    node_count: int = 0
+    edge_count: int = 0
+    nodes_by_type: dict[str, int] = Field(default_factory=dict)
+    edges_by_relation: dict[str, int] = Field(default_factory=dict)
+
+
 class AnalysisReport(BaseModel):
     """The complete result of one `traceiq analyze` run.
 
     Serialized verbatim to ``analysis.json`` and rendered to HTML. Fields are
     additive across versions; ``schema_version`` bumps on breaking changes.
+    Version 2 introduces multi-artifact input and the Evidence Graph.
     """
 
-    schema_version: str = "1"
+    schema_version: str = "2"
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    input_file: str = Field(description="Path of the analyzed log, as given on the CLI.")
-    parser_name: str = Field(description="Name of the parser that produced the events.")
+    input_files: list[str] = Field(description="Paths of the analyzed artifacts, as given on the CLI.")
+    parser_names: list[str] = Field(description="Parsers used, one per input artifact.")
     summary: LogSummary
+    graph_stats: GraphStats = Field(default_factory=GraphStats)
     classification: ClassificationResult
     alternatives: list[ClassificationResult] = Field(
         default_factory=list, description="Other rule verdicts, sorted by descending confidence."

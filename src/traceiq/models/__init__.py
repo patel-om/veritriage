@@ -2,7 +2,8 @@
 
 Parsers produce these models; the rule engine consumes and enriches them;
 report generators render them. Nothing downstream of a parser ever touches
-raw log text again - the models are the single source of truth.
+raw artifact text again. Note: this package must never import
+``traceiq.graph`` at runtime (the graph imports these models).
 """
 
 from traceiq.models.events import Severity, SimulationEvent
@@ -11,6 +12,7 @@ from traceiq.models.failure import AssertionFailure, Failure, FailureCategory
 from traceiq.models.report import (
     AnalysisReport,
     ClassificationResult,
+    GraphStats,
     LogSummary,
     Recommendation,
 )
@@ -22,6 +24,7 @@ __all__ = [
     "Evidence",
     "Failure",
     "FailureCategory",
+    "GraphStats",
     "LogSummary",
     "Recommendation",
     "Severity",

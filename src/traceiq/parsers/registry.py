@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import TypeVar
 
@@ -43,16 +44,33 @@ def get_parser(name: str) -> Parser:
         raise KeyError(f"Unknown parser {name!r}. Registered parsers: {known}") from None
 
 
-def find_parser(path: Path) -> Parser:
-    """Find the first registered parser that claims ``path``.
+def _pattern_specificity(pattern: str) -> int:
+    """Rank a glob pattern: exact names beat narrow globs beat catch-alls."""
+    if "*" not in pattern and "?" not in pattern:
+        return 1000 + len(pattern)
+    return len(pattern.replace("*", "").replace("?", ""))
 
-    Falls back to the ``simulation_log`` parser when nothing claims the file,
-    since v1 only handles simulation logs anyway.
+
+def find_parser(path: Path) -> Parser:
+    """Find the registered parser whose pattern most specifically claims ``path``.
+
+    Specificity ranking lets 'compile.log' beat the simulation parser's
+    generic '*.log' regardless of registration order. Falls back to the
+    ``simulation_log`` parser when nothing claims the file.
 
     Raises:
         KeyError: If nothing claims the file and no fallback is registered.
     """
+    best: tuple[int, type[Parser]] | None = None
     for parser_cls in _REGISTRY.values():
-        if parser_cls.can_parse(path):
-            return parser_cls()
+        if not parser_cls.can_parse(path):
+            continue
+        score = max(
+            (_pattern_specificity(p) for p in parser_cls.file_patterns if fnmatch(path.name, p)),
+            default=0,
+        )
+        if best is None or score > best[0]:
+            best = (score, parser_cls)
+    if best is not None:
+        return best[1]()
     return get_parser("simulation_log")

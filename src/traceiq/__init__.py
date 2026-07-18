@@ -1,12 +1,13 @@
 """TraceIQ - verification intelligence for semiconductor regression debug.
 
-TraceIQ ingests verification artifacts (simulation logs in v1), normalizes
-them into strongly-typed data models, runs a deterministic rule engine to
-classify the failure, and emits structured JSON plus an engineering-grade
-HTML report. An optional AI layer summarizes findings - always grounded in
-the deterministic evidence extracted beforehand, never in place of it.
+TraceIQ ingests verification artifacts (simulation logs, compile logs,
+coverage summaries, test metadata), normalizes everything into a typed
+Evidence Graph, runs a deterministic rule engine over the graph to classify
+the failure, and emits structured JSON, the serialized graph, and an
+engineering-grade HTML report. An optional AI layer reasons exclusively over
+the graph's normalized view: it can narrate the evidence, never invent it.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = ["__version__"]

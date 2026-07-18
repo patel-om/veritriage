@@ -1,0 +1,4 @@
+covergroup cg_axi_burst : 72.50%
+covergroup cg_reset : 100.00%
+module scoreboard : 55.00%
+module dma_engine : 91.25%

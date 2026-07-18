@@ -1,29 +1,28 @@
-"""Built-in classification rules shipped with TraceIQ v1.
+"""Built-in classification rules, evaluated over the Evidence Graph.
 
 Confidence values are deliberately coarse and ordered so that more specific
 diagnoses outrank generic ones when several rules fire:
 
-    compile (90) ≥ assertion (90) > timeout (85) > testbench (80) > fatal (70)
+    compile (90) >= assertion (90) > timeout (85) > testbench (80) > fatal (70)
 """
 
 from __future__ import annotations
 
 import re
 
-from traceiq.models import (
-    AssertionFailure,
-    ClassificationResult,
-    FailureCategory,
-    Recommendation,
-    SimulationEvent,
-)
-from traceiq.parsers.base import ParseResult
+from traceiq.graph.graph import EvidenceGraph
+from traceiq.graph.model import ArtifactType, EvidenceNode
+from traceiq.models import ClassificationResult, FailureCategory, Recommendation, Severity
 from traceiq.rules.base import Rule
 
 
-def _matching(events: list[SimulationEvent], pattern: re.Pattern[str]) -> list[SimulationEvent]:
-    """Events whose message or raw line matches ``pattern``."""
-    return [e for e in events if pattern.search(e.message) or pattern.search(e.raw_line)]
+def _matching(nodes: list[EvidenceNode], pattern: re.Pattern[str]) -> list[EvidenceNode]:
+    """Nodes whose description or raw line matches ``pattern``."""
+    return [
+        n
+        for n in nodes
+        if pattern.search(n.description) or (n.raw_line is not None and pattern.search(n.raw_line))
+    ]
 
 
 class CompileFailureRule(Rule):
@@ -40,25 +39,27 @@ class CompileFailureRule(Rule):
     )
     _CODES = frozenset({"SE", "IND", "MPD", "UD"})  # common VCS compile error codes
 
-    def evaluate(self, parse_result: ParseResult) -> ClassificationResult | None:
-        failing = parse_result.failing_events
-        matched = _matching(failing, self._PATTERN)
+    def evaluate(self, graph: EvidenceGraph) -> ClassificationResult | None:
+        failing = graph.failing()
+        # Evidence from a dedicated compile log is authoritative; pattern and
+        # message-code matching covers compile errors inside a mixed run log.
+        matched = [n for n in failing if n.artifact_type == ArtifactType.COMPILE_LOG]
+        matched += [n for n in _matching(failing, self._PATTERN) if n not in matched]
         matched += [
-            e for e in failing
-            if e not in matched and e.message_id is not None and e.message_id in self._CODES
+            n
+            for n in failing
+            if n not in matched and n.attributes.get("message_id") in self._CODES
         ]
         if not matched:
             return None
         first = matched[0]
-        where = (
-            f" at {first.source_file}:{first.source_line}"
-            if first.source_file and first.source_line
-            else ""
-        )
+        source_file = first.attributes.get("source_file")
+        source_line = first.attributes.get("source_line")
+        where = f" at {source_file}:{source_line}" if source_file and source_line else ""
         return self._result(
             confidence=90,
             summary="Compile/elaboration failure - the design never simulated",
-            events=matched,
+            nodes=matched,
             recommendations=[
                 Recommendation(
                     action=f"Fix the first compile error{where} and rebuild.",
@@ -75,22 +76,22 @@ class CompileFailureRule(Rule):
 
 
 class AssertionFailureRule(Rule):
-    """An SVA/checker assertion fired - a protocol or invariant was violated."""
+    """An SVA/checker assertion fired: a protocol or invariant was violated."""
 
     name = "assertion-failure"
     category = FailureCategory.ASSERTION_FAILURE
 
-    def evaluate(self, parse_result: ParseResult) -> ClassificationResult | None:
-        assertion_failures = [f for f in parse_result.failures if isinstance(f, AssertionFailure)]
-        if not assertion_failures:
+    def evaluate(self, graph: EvidenceGraph) -> ClassificationResult | None:
+        assertions = [n for n in graph.nodes_of_type(ArtifactType.ASSERTION) if n.is_failing]
+        if not assertions:
             return None
-        first = assertion_failures[0]
-        scope = first.assertion_path or first.event.component or "the failing checker"
-        when = f" around time {first.event.sim_time}" if first.event.sim_time else ""
+        first = assertions[0]
+        scope = first.module or "the failing checker"
+        when = f" around time {first.sim_time}" if first.sim_time else ""
         return self._result(
             confidence=90,
             summary="Assertion failure - a design invariant or protocol check was violated",
-            events=[f.event for f in assertion_failures],
+            nodes=assertions,
             recommendations=[
                 Recommendation(
                     action=f"Inspect the waveform{when} at scope {scope}.",
@@ -114,14 +115,14 @@ class TimeoutRule(Rule):
 
     _PATTERN = re.compile(r"time[- ]?out|watchdog|PH_TIMEOUT|TIMOUT", re.IGNORECASE)
 
-    def evaluate(self, parse_result: ParseResult) -> ClassificationResult | None:
-        matched = _matching(parse_result.failing_events, self._PATTERN)
+    def evaluate(self, graph: EvidenceGraph) -> ClassificationResult | None:
+        matched = _matching(graph.failing(), self._PATTERN)
         if not matched:
             return None
         return self._result(
             confidence=85,
             summary="Timeout - the test hung and was killed by a watchdog/phase timeout",
-            events=matched,
+            nodes=matched,
             recommendations=[
                 Recommendation(
                     action="Check for a raised objection that is never dropped, or a stalled handshake.",
@@ -138,7 +139,7 @@ class TimeoutRule(Rule):
 
 
 class TestbenchFailureRule(Rule):
-    """Scoreboard/comparison mismatch - likely a checking-environment issue."""
+    """Scoreboard/comparison mismatch: likely a checking-environment issue."""
 
     name = "testbench-failure"
     category = FailureCategory.TESTBENCH_FAILURE
@@ -149,14 +150,14 @@ class TestbenchFailureRule(Rule):
         re.IGNORECASE,
     )
 
-    def evaluate(self, parse_result: ParseResult) -> ClassificationResult | None:
-        matched = _matching(parse_result.failing_events, self._PATTERN)
+    def evaluate(self, graph: EvidenceGraph) -> ClassificationResult | None:
+        matched = _matching(graph.failing(), self._PATTERN)
         if not matched:
             return None
         return self._result(
             confidence=80,
             summary="Likely testbench issue - scoreboard or comparison mismatch",
-            events=matched,
+            nodes=matched,
             recommendations=[
                 Recommendation(
                     action="Inspect the scoreboard prediction logic for the first mismatching transaction.",
@@ -178,14 +179,14 @@ class FatalErrorRule(Rule):
     name = "fatal-error"
     category = FailureCategory.FATAL_ERROR
 
-    def evaluate(self, parse_result: ParseResult) -> ClassificationResult | None:
-        fatal = [e for e in parse_result.events if e.severity.value == "fatal"]
+    def evaluate(self, graph: EvidenceGraph) -> ClassificationResult | None:
+        fatal = graph.with_severity(Severity.FATAL)
         if not fatal:
             return None
         return self._result(
             confidence=70,
             summary="Fatal error - the simulation aborted",
-            events=fatal,
+            nodes=fatal,
             recommendations=[
                 Recommendation(
                     action="Read the first fatal message and the errors immediately preceding it.",
