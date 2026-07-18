@@ -1,0 +1,4 @@
+# Questa Sim-64 vsim 2025.1
+# ** Warning: (vsim-3015) Port size mismatch on 'dut_if'
+# ** Fatal: (vsim-3601) Iteration limit 10000 reached at time 45 ns.
+# Time: 45 ns  Iteration: 10000  Instance: /tb/dut

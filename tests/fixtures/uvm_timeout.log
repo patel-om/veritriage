@@ -1,0 +1,6 @@
+Cadence Xcelium simulator
+UVM_INFO @ 0: reporter [RNTST] Running test dma_stress_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_INFO /tb/driver.sv(77) @ 9000000: uvm_test_top.env.drv [DRV] descriptor 4 issued, awaiting completion
+UVM_ERROR /tools/uvm/src/base/uvm_phase.svh(1491) @ 10000000: reporter [PH_TIMEOUT] Default timeout of 10000000 hit, indicating a probable testbench issue
+UVM_FATAL /tools/uvm/src/base/uvm_phase.svh(1493) @ 10000000: reporter [PH_TIMEOUT] Phase timeout, ending simulation

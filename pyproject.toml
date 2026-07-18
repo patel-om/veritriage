@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "traceiq"
+version = "0.1.0"
+description = "Verification intelligence platform: turn simulation logs into evidence-backed root-cause reports."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Om Patel", email = "patel2om002@gmail.com" }]
+keywords = ["eda", "verification", "uvm", "systemverilog", "regression", "debug", "root-cause"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
+]
+dependencies = [
+  "pydantic>=2.7",
+  "typer>=0.12",
+  "rich>=13.7",
+  "jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+ai = ["anthropic>=0.40"]
+dev = ["pytest>=8.0"]
+
+[project.urls]
+Homepage = "https://github.com/ompatel/traceiq"
+
+[project.scripts]
+traceiq = "traceiq.cli.main:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/traceiq"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

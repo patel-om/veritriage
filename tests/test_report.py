@@ -1,0 +1,59 @@
+"""Report tests: JSON round-trip and HTML rendering."""
+
+from __future__ import annotations
+
+from traceiq.models import AnalysisReport
+from traceiq.pipeline import analyze
+from traceiq.reports import HtmlReportGenerator
+
+
+def test_json_round_trip(fixture_log):
+    report = analyze(fixture_log("uvm_scoreboard.log"))
+    restored = AnalysisReport.model_validate_json(report.model_dump_json())
+    assert restored == report
+
+
+def test_html_contains_all_sections(fixture_log, tmp_path):
+    report = analyze(fixture_log("uvm_scoreboard.log"))
+    html_path = HtmlReportGenerator().write(report, tmp_path / "report.html")
+    html = html_path.read_text(encoding="utf-8")
+
+    for section in (
+        "Regression Summary",
+        "Failure Classification",
+        "Confidence",
+        "Evidence Timeline",
+        "Relevant Log Snippets",
+        "Suggested Next Steps",
+        "Waveform",
+    ):
+        assert section in html, f"missing section: {section}"
+
+    assert "Testbench Failure" in html
+    assert "80%" in html
+    assert "axi_random_test" in html
+
+
+def test_html_escapes_log_content(tmp_path):
+    # Log content is untrusted; markup in messages must not become live HTML.
+    log = tmp_path / "evil.log"
+    log.write_text('Error: <script>alert("x")</script> in packet\n')
+    report = analyze(log)
+    html = HtmlReportGenerator().render(report)
+    assert "<script>alert" not in html
+    assert "&lt;script&gt;" in html
+
+
+def test_clean_run_renders_without_evidence_sections(fixture_log):
+    report = analyze(fixture_log("uvm_pass.log"))
+    html = HtmlReportGenerator().render(report)
+    assert "No Failure" in html
+    assert "Evidence Timeline" not in html
+
+
+def test_ai_summary_section_rendered_when_present(fixture_log):
+    report = analyze(fixture_log("uvm_assertion.log"))
+    report.ai_summary = "The assertion a_valid_stable fired at t=105000."
+    html = HtmlReportGenerator().render(report)
+    assert "AI Summary" in html
+    assert "a_valid_stable fired" in html

@@ -1,0 +1,11 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test axi_smoke_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_INFO /tb/scoreboard.sv(88) @ 12000: uvm_test_top.env.scb [SCBD] 128 transactions compared, all match
+UVM_INFO /tb/test.sv(120) @ 250000: uvm_test_top [TEST] test finished
+--- UVM Report Summary ---
+UVM_INFO :   4
+UVM_WARNING :   0
+UVM_ERROR :   0
+UVM_FATAL :   0
+$finish called from file "/tools/uvm/src/base/uvm_root.svh", line 527.

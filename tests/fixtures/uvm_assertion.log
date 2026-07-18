@@ -1,0 +1,9 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test axi_burst_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_ERROR /rtl/axi_monitor.sv(202) @ 105000: uvm_test_top.env.mon [ASSERT] Assertion a_valid_stable failed: VALID dropped before READY
+UVM_INFO /tb/driver.sv(77) @ 105500: uvm_test_top.env.drv [DRV] burst 12 sent
+UVM_FATAL /tb/test.sv(130) @ 106000: uvm_test_top [TEST] stopping due to assertion failure
+--- UVM Report Summary ---
+UVM_ERROR :   1
+UVM_FATAL :   1

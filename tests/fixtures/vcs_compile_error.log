@@ -1,0 +1,8 @@
+Chronologic VCS (TM) Version U-2025.06
+Parsing design file '/rtl/fifo.sv'
+Error-[SE] Syntax error
+  Following verilog source has syntax error :
+  "/rtl/fifo.sv", 88: token is ';'
+Error-[UD] Undeclared identifier
+  "/rtl/fifo.sv", 92: Undeclared identifier 'wr_ptrr'
+1 warning, 2 errors
