@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from traceiq.graph import (
+from veritriage.graph import (
     ArtifactType,
     EvidenceEdge,
     EvidenceGraph,
@@ -13,7 +13,7 @@ from traceiq.graph import (
     RelationType,
     make_node_id,
 )
-from traceiq.parsers import find_parser
+from veritriage.parsers import find_parser
 
 
 def build_graph(fixture_log, *names: str) -> EvidenceGraph:

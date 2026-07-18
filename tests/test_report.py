@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from traceiq.models import AnalysisReport
-from traceiq.pipeline import analyze
-from traceiq.reports import HtmlReportGenerator
+from veritriage.models import AnalysisReport
+from veritriage.pipeline import analyze
+from veritriage.reports import HtmlReportGenerator
 
 
 def test_json_round_trip(fixture_log):

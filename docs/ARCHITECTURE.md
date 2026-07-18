@@ -1,6 +1,6 @@
-# TraceIQ Architecture
+# VeriTriage Architecture
 
-TraceIQ is a pipeline of small, replaceable layers. Data flows one way, every
+VeriTriage is a pipeline of small, replaceable layers. Data flows one way, every
 layer speaks typed Pydantic models, and each extension point is a plugin
 registry. Since v2 the layers meet in the middle at the **Evidence Graph**,
 the single source of truth for everything downstream of parsing (full design
@@ -20,12 +20,12 @@ flowchart LR
     E --> G[("Evidence Graph")]
 ```
 
-- **`traceiq.parsers.base.Parser`** is the single interface: `can_parse(path)`,
+- **`veritriage.parsers.base.Parser`** is the single interface: `can_parse(path)`,
   `parse(path) -> ParseResult`, and `emit_evidence(result) -> GraphFragment`.
   The default `emit_evidence` covers message-oriented logs (and tags assertion
   failures as first-class `assertion` evidence); coverage and metadata parsers
   override it.
-- **`traceiq.parsers.registry`** holds the plugin table. A new parser is a
+- **`veritriage.parsers.registry`** holds the plugin table. A new parser is a
   subclass with an `@register` decorator; no existing file changes. Pattern
   specificity ranking lets `compile.log` beat the generic `*.log` claim.
 - Parsers are the only layer that ever touches raw artifact text.
@@ -102,7 +102,7 @@ reasoning engine; it just sees more nodes.
 | Waveform metadata, FSDB/VCD indexing | parser for the reserved `waveform_metadata` type + a correlation pass |
 | Spec retrieval, git correlation | new node types + correlation passes |
 | Multi-agent / deeper AI reasoning | consumers of `to_reasoning_view()`, behind the same boundary |
-| VS Code / Slack / GitHub Action / MCP server | front-ends over `traceiq.pipeline.analyze()` |
+| VS Code / Slack / GitHub Action / MCP server | front-ends over `veritriage.pipeline.analyze()` |
 
 ## Known limitations
 

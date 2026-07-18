@@ -11,9 +11,9 @@ import inspect
 
 import pytest
 
-import traceiq.analyzers.summary as summary_module
-from traceiq.analyzers import AISummarizer, AISummaryError
-from traceiq.pipeline import analyze
+import veritriage.analyzers.summary as summary_module
+from veritriage.analyzers import AISummarizer, AISummaryError
+from veritriage.pipeline import analyze
 
 
 def test_summarizer_signature_takes_graph_not_paths():

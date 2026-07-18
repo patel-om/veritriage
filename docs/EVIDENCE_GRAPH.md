@@ -1,6 +1,6 @@
 # The Evidence Graph
 
-The Evidence Graph is the central architecture of TraceIQ v2 and the single
+The Evidence Graph is the central architecture of VeriTriage v2 and the single
 source of truth for everything downstream of parsing. This document describes
 what it is, the invariants it enforces, and why the design improves
 scalability, explainability, and deterministic reasoning.
@@ -93,7 +93,7 @@ Every conclusion is a walk through the graph:
 * each edge carries a human-readable `rationale`;
 * the AI summary cites node IDs inline.
 
-"Why does TraceIQ think this is a testbench failure?" is answerable
+"Why does VeriTriage think this is a testbench failure?" is answerable
 mechanically: follow the evidence node IDs to log lines, and the edges to the
 events before and around them. There is no conclusion whose provenance ends in
 "the model said so"; provenance always ends at an artifact location.
@@ -110,7 +110,7 @@ events before and around them. There is no conclusion whose provenance ends in
   strictly downstream, cannot alter the graph or the classification, and is
   constrained to the deterministic evidence as input.
 
-The result: two engineers running TraceIQ on the same regression artifacts get
+The result: two engineers running VeriTriage on the same regression artifacts get
 the same graph, the same classification, and the same evidence, every time.
 The AI adds prose, never facts.
 

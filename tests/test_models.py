@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from traceiq.models import (
+from veritriage.models import (
     ClassificationResult,
     Evidence,
     FailureCategory,

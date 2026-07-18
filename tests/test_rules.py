@@ -6,10 +6,10 @@ files, so classification works identically for any artifact mix.
 
 from __future__ import annotations
 
-from traceiq.graph import EvidenceGraph, GraphBuilder
-from traceiq.models import ClassificationResult, FailureCategory
-from traceiq.parsers import find_parser
-from traceiq.rules import Rule, RuleEngine
+from veritriage.graph import EvidenceGraph, GraphBuilder
+from veritriage.models import ClassificationResult, FailureCategory
+from veritriage.parsers import find_parser
+from veritriage.rules import Rule, RuleEngine
 
 
 def graph_of(fixture_log, *names: str) -> EvidenceGraph:

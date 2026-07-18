@@ -1,4 +1,4 @@
-"""CLI tests: end-to-end `traceiq analyze` producing all artifacts."""
+"""CLI tests: end-to-end `veritriage analyze` producing all artifacts."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import json
 
 from typer.testing import CliRunner
 
-from traceiq.cli.main import app
+from veritriage.cli.main import app
 
 runner = CliRunner()
 
@@ -77,8 +77,8 @@ def test_parsers_command_lists_all_artifact_parsers():
 
 
 def test_version_command():
-    import traceiq
+    import veritriage
 
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
-    assert traceiq.__version__ in result.output
+    assert veritriage.__version__ in result.output

@@ -1,19 +1,19 @@
-# TraceIQ
+# VeriTriage
 
-**Verification intelligence for semiconductor regression debug.** TraceIQ turns
+**Verification intelligence for semiconductor regression debug.** VeriTriage turns
 raw verification artifacts (simulation logs, compile logs, coverage summaries,
 test metadata) into a normalized **Evidence Graph**, a deterministic failure
 classification with confidence and evidence, an engineering-grade HTML report,
 and suggested next debugging steps - in one command.
 
 ```
-traceiq analyze simulation.log coverage.txt test_metadata.json
+veritriage analyze simulation.log coverage.txt test_metadata.json
 ```
 
 ## Why
 
 Today's debug flow after a regression failure is manual: open the log, grep for
-errors, open the waveform, inspect signals, form a hypothesis. TraceIQ
+errors, open the waveform, inspect signals, form a hypothesis. VeriTriage
 automates the front half of that loop:
 
 ```
@@ -54,17 +54,17 @@ pip install -e ".[dev]"     # + test tooling
 
 ```bash
 # Analyze one artifact
-traceiq analyze simulation.log
+veritriage analyze simulation.log
 
 # Analyze a whole run: log + coverage + test metadata, correlated in one graph
-traceiq analyze simulation.log compile.log coverage.txt test_metadata.json -o out/
+veritriage analyze simulation.log compile.log coverage.txt test_metadata.json -o out/
 
 # Add an AI summary grounded in the evidence graph
-traceiq analyze simulation.log -o out/ --ai
+veritriage analyze simulation.log -o out/ --ai
 
 # Introspection
-traceiq parsers
-traceiq version
+veritriage parsers
+veritriage version
 ```
 
 Each run writes three artifacts to the output directory:
@@ -86,7 +86,7 @@ artifact text.
 
 ```python
 from pathlib import Path
-from traceiq.pipeline import analyze
+from veritriage.pipeline import analyze
 
 outcome = analyze([Path("simulation.log"), Path("coverage.txt")])
 print(outcome.report.classification.category, outcome.report.classification.confidence)

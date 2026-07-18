@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from traceiq.graph import ArtifactType
-from traceiq.parsers import (
+from veritriage.graph import ArtifactType
+from veritriage.parsers import (
     CompileLogParser,
     CoverageParser,
     TestMetadataParser,

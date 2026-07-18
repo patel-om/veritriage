@@ -1,9 +1,9 @@
-# Contributing to TraceIQ
+# Contributing to VeriTriage
 
 ## Setup
 
 ```bash
-git clone <repo> && cd traceiq
+git clone <repo> && cd veritriage
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest
@@ -14,23 +14,23 @@ Python 3.11+. Type hints and docstrings everywhere; keep rules and parsers pure
 
 ## Adding a parser
 
-1. Create `src/traceiq/parsers/<artifact>.py`.
+1. Create `src/veritriage/parsers/<artifact>.py`.
 2. Subclass `Parser`, set `name`, `artifact_type`, and `file_patterns`,
    implement `parse(path) -> ParseResult`, and decorate with `@register`.
    Message-oriented artifacts get graph emission for free from the default
    `emit_evidence`; other shapes (coverage, metadata) override it to emit
    their own `GraphFragment`.
-3. Import it from `src/traceiq/parsers/__init__.py` (registration happens on
+3. Import it from `src/veritriage/parsers/__init__.py` (registration happens on
    import).
 4. If cross-artifact links make sense, add one correlation pass in
-   `src/traceiq/graph/builder.py` with a rationale on every edge.
+   `src/veritriage/graph/builder.py` with a rationale on every edge.
 5. Add a fixture under `tests/fixtures/` and tests asserting the extraction,
    the emitted evidence, and any correlation.
 
 ```python
-from traceiq.graph.model import ArtifactType
-from traceiq.parsers.base import Parser, ParseResult
-from traceiq.parsers.registry import register
+from veritriage.graph.model import ArtifactType
+from veritriage.parsers.base import Parser, ParseResult
+from veritriage.parsers.registry import register
 
 @register
 class WaveformMetadataParser(Parser):
@@ -47,7 +47,7 @@ Everything a parser emits must be traceable to a specific line.
 
 ## Adding a rule
 
-1. Add a `Rule` subclass in `src/traceiq/rules/builtin.py` (or a new module).
+1. Add a `Rule` subclass in `src/veritriage/rules/builtin.py` (or a new module).
 2. Set `name` and `category`, implement
    `evaluate(graph: EvidenceGraph) -> ClassificationResult | None`. Rules
    query the graph only (`graph.failing()`, `graph.nodes_of_type(...)`,

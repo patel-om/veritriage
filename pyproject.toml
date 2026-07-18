@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "traceiq"
+name = "veritriage"
 version = "0.2.0"
 description = "Verification intelligence platform: turn simulation logs into evidence-backed root-cause reports."
 readme = "README.md"
@@ -32,13 +32,13 @@ ai = ["anthropic>=0.40"]
 dev = ["pytest>=8.0"]
 
 [project.urls]
-Homepage = "https://github.com/ompatel/traceiq"
+Homepage = "https://github.com/ompatel/veritriage"
 
 [project.scripts]
-traceiq = "traceiq.cli.main:app"
+veritriage = "veritriage.cli.main:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/traceiq"]
+packages = ["src/veritriage"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from traceiq.models import AssertionFailure, Severity
-from traceiq.parsers import SimulationLogParser, available_parsers, find_parser, get_parser
-from traceiq.parsers.base import Parser
-from traceiq.parsers.registry import register
+from veritriage.models import AssertionFailure, Severity
+from veritriage.parsers import SimulationLogParser, available_parsers, find_parser, get_parser
+from veritriage.parsers.base import Parser
+from veritriage.parsers.registry import register
 
 
 def parse(fixture_log, name: str):
@@ -102,14 +102,14 @@ class TestRegistry:
             assert isinstance(find_parser(meta), WaveformMetaParser)
         finally:
             # Keep the global registry clean for other tests.
-            from traceiq.parsers.registry import _REGISTRY
+            from veritriage.parsers.registry import _REGISTRY
 
             _REGISTRY.pop("test_waveform_meta", None)
 
     def test_specific_pattern_beats_generic_glob(self, tmp_path: Path):
         # compile.log matches both the compile parser's exact name and the
         # simulation parser's '*.log'; specificity must pick the compile parser.
-        from traceiq.parsers import CompileLogParser
+        from veritriage.parsers import CompileLogParser
 
         log = tmp_path / "compile.log"
         log.write_text("Error-[SE] Syntax error\n")
