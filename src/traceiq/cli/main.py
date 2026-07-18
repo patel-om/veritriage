@@ -21,7 +21,7 @@ from traceiq.utils import write_json
 
 app = typer.Typer(
     name="traceiq",
-    help="TraceIQ — turn simulation logs into evidence-backed root-cause reports.",
+    help="TraceIQ - turn simulation logs into evidence-backed root-cause reports.",
     no_args_is_help=True,
     add_completion=False,
 )
@@ -60,7 +60,7 @@ def analyze(
             report.ai_summary = AISummarizer(model=ai_model).summarize(report)
         except AISummaryError as exc:
             # AI is optional by design: warn and continue with the deterministic report.
-            _err.print(f"[yellow]warning:[/yellow] AI summary skipped — {escape(str(exc))}")
+            _err.print(f"[yellow]warning:[/yellow] AI summary skipped - {escape(str(exc))}")
 
     json_path = write_json(report, output_dir / "analysis.json")
     html_path = HtmlReportGenerator().write(report, output_dir / "report.html")
@@ -81,7 +81,7 @@ def parsers() -> None:
     table.add_column("Name")
     table.add_column("File patterns")
     for name, cls in sorted(available_parsers().items()):
-        table.add_row(name, ", ".join(cls.file_patterns) or "—")
+        table.add_row(name, ", ".join(cls.file_patterns) or "-")
     console.print(table)
 
 
@@ -106,7 +106,7 @@ def _print_summary(report: AnalysisReport) -> None:
 
     body = Table.grid(padding=(0, 1))
     body.add_column()
-    body.add_row(f"[bold]{c.category.display_name}[/bold]  —  confidence {c.confidence}%")
+    body.add_row(f"[bold]{c.category.display_name}[/bold]  -  confidence {c.confidence}%")
     body.add_row(f"[dim]{c.summary}  (rule: {c.rule_name})[/dim]")
     body.add_row("")
     body.add_row(counts)

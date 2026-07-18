@@ -2,7 +2,7 @@
 
 Parsers produce these models; the rule engine consumes and enriches them;
 report generators render them. Nothing downstream of a parser ever touches
-raw log text again — the models are the single source of truth.
+raw log text again - the models are the single source of truth.
 """
 
 from traceiq.models.events import Severity, SimulationEvent

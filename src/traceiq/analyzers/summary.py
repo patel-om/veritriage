@@ -3,7 +3,7 @@
 Design rules:
 
 * The AI runs **after** deterministic parsing and rule classification, and it
-  only ever sees the extracted evidence — never the raw log. It cannot add
+  only ever sees the extracted evidence - never the raw log. It cannot add
   facts, only narrate the ones the rule engine established.
 * The dependency is optional (``pip install traceiq[ai]``). Without the
   ``anthropic`` package or credentials, analysis works normally and the
@@ -64,7 +64,7 @@ class AISummarizer:
                 "Install with: pip install traceiq[ai]"
             ) from exc
 
-        # Only the deterministic findings are sent — never the raw log.
+        # Only the deterministic findings are sent - never the raw log.
         payload = report.model_dump(
             mode="json",
             include={"summary", "classification", "alternatives", "input_file"},

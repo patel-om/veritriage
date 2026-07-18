@@ -23,7 +23,7 @@ class Rule(ABC):
 
     A rule either abstains (returns ``None``) or returns a verdict with
     confidence and evidence. Rules must be pure functions of the parse
-    result — no I/O, no randomness — so a given log always classifies the
+    result - no I/O, no randomness - so a given log always classifies the
     same way.
     """
 

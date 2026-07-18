@@ -53,7 +53,7 @@ _GENERIC_RE = re.compile(
     r"^\s*(?:#\s*)?(?P<sev>ERROR|Error|FATAL|Fatal|WARNING|Warning)\b\s*[:\-]\s*(?P<msg>.+)$"
 )
 
-# UVM end-of-run report tally, e.g. "UVM_ERROR :    2" — a count, not an event.
+# UVM end-of-run report tally, e.g. "UVM_ERROR :    2" - a count, not an event.
 _UVM_COUNT_RE = re.compile(r"^\s*(?:#\s*)?UVM_(INFO|WARNING|ERROR|FATAL)\s*:\s*\d+\s*$")
 
 # --- Metadata --------------------------------------------------------------
@@ -236,6 +236,6 @@ class SimulationLogParser(Parser):
         for pattern in _TEST_NAME_RES:
             m = pattern.search(line)
             if m:
-                # UVM prints "Running test <name>..." — drop the ellipsis.
+                # UVM prints "Running test <name>..." - drop the ellipsis.
                 return m["name"].rstrip(".")
         return None

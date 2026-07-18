@@ -1,7 +1,7 @@
 """Parser layer: turn raw verification artifacts into normalized models.
 
 New parsers plug in by subclassing :class:`~traceiq.parsers.base.Parser` and
-decorating with :func:`~traceiq.parsers.registry.register` — no existing code
+decorating with :func:`~traceiq.parsers.registry.register` - no existing code
 changes required.
 """
 

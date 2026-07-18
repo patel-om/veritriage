@@ -3,7 +3,7 @@
 **Verification intelligence for semiconductor regression debug.** TraceIQ turns a raw
 simulation log into structured JSON, a deterministic failure classification with
 confidence and evidence, an engineering-grade HTML report, and suggested next
-debugging steps — in one command.
+debugging steps - in one command.
 
 ```
 traceiq analyze simulation.log
@@ -61,7 +61,7 @@ Exit codes: `0` clean run, `1` failure classified (useful for CI gating),
 `2` usage error.
 
 The AI summary uses the Anthropic API (`ANTHROPIC_API_KEY` or an `ant auth login`
-profile) and receives only the deterministic findings — never the raw log.
+profile) and receives only the deterministic findings - never the raw log.
 
 ### Library use
 
@@ -87,7 +87,7 @@ print(report.classification.category, report.classification.confidence)
 
 All rule verdicts (not just the winner) appear in the report as alternatives.
 
-## Scope of v1 — deliberately small
+## Scope of v1 - deliberately small
 
 Simulation logs only. No waveform parsing, no RTL parsing, no RAG, no vector
 databases, no multi-agent orchestration. See

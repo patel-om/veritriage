@@ -10,8 +10,8 @@ from traceiq.models.events import SimulationEvent
 class Evidence(BaseModel):
     """A single verifiable observation supporting a conclusion.
 
-    Every classification the rule engine emits — and every claim the optional
-    AI summary is allowed to make — must trace back to one or more of these.
+    Every classification the rule engine emits - and every claim the optional
+    AI summary is allowed to make - must trace back to one or more of these.
     Each piece of evidence points at a concrete location in the source log.
     """
 

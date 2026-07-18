@@ -9,7 +9,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from traceiq.models import AnalysisReport, FailureCategory, Severity
 
 #: Maps each failure category to a status role in the report's fixed status
-#: palette. Status colors are always paired with a text label — never alone.
+#: palette. Status colors are always paired with a text label - never alone.
 _STATUS_ROLE: dict[FailureCategory, str] = {
     FailureCategory.NO_FAILURE: "good",
     FailureCategory.UNKNOWN_FAILURE: "warning",

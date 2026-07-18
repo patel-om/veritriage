@@ -2,7 +2,7 @@
 
 TraceIQ is a pipeline of small, replaceable layers. Data flows one way, every
 layer speaks typed Pydantic models, and each extension point is a plugin
-registry — so v2+ features (waveforms, coverage, AI reasoning) attach without
+registry - so v2+ features (waveforms, coverage, AI reasoning) attach without
 reshaping v1.
 
 ## Parser pipeline
@@ -19,7 +19,7 @@ flowchart LR
 - **`traceiq.parsers.base.Parser`** is the single interface: `can_parse(path)`
   plus `parse(path) -> ParseResult`.
 - **`traceiq.parsers.registry`** holds the plugin table. A new parser is a
-  subclass with an `@register` decorator — no existing file changes.
+  subclass with an `@register` decorator - no existing file changes.
 - **`ParseResult`** is the hand-off contract: normalized `SimulationEvent`s,
   extracted `Failure`/`AssertionFailure` records, and a `LogSummary`. Nothing
   downstream reads raw log text.
@@ -42,7 +42,7 @@ flowchart TB
 
 - Rules are **pure functions** of the `ParseResult`: no I/O, no randomness. The
   same log always classifies identically.
-- Each verdict is a `ClassificationResult`: category, confidence (0–100), the
+- Each verdict is a `ClassificationResult`: category, confidence (0-100), the
   rule's name, `Evidence` items (each pointing at a log line), and
   `Recommendation`s (action + rationale).
 - The engine guarantees a classification: if no rule fires it emits
@@ -55,7 +55,7 @@ flowchart TB
 
 `AnalysisReport` is the single output model, serialized verbatim to
 `analysis.json` (schema-versioned) and rendered by `HtmlReportGenerator`
-(Jinja2, autoescaped, self-contained HTML — no external assets, light/dark
+(Jinja2, autoescaped, self-contained HTML - no external assets, light/dark
 theme aware). The CLI renders the same model to the terminal with Rich.
 
 ## Future AI layer
@@ -79,7 +79,7 @@ flowchart LR
 The AI boundary is the report model itself: any future reasoning layer consumes
 `AnalysisReport` (plus new evidence sources) and writes back into it. Because
 evidence is structured and location-anchored, AI output can always be audited
-against the artifacts — the "no unsupported claims" rule is enforced by what
+against the artifacts - the "no unsupported claims" rule is enforced by what
 the AI is *given*, not by prompt hope alone.
 
 ## Why v2+ needs no restructuring

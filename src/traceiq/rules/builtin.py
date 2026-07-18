@@ -57,7 +57,7 @@ class CompileFailureRule(Rule):
         )
         return self._result(
             confidence=90,
-            summary="Compile/elaboration failure — the design never simulated",
+            summary="Compile/elaboration failure - the design never simulated",
             events=matched,
             recommendations=[
                 Recommendation(
@@ -75,7 +75,7 @@ class CompileFailureRule(Rule):
 
 
 class AssertionFailureRule(Rule):
-    """An SVA/checker assertion fired — a protocol or invariant was violated."""
+    """An SVA/checker assertion fired - a protocol or invariant was violated."""
 
     name = "assertion-failure"
     category = FailureCategory.ASSERTION_FAILURE
@@ -89,7 +89,7 @@ class AssertionFailureRule(Rule):
         when = f" around time {first.event.sim_time}" if first.event.sim_time else ""
         return self._result(
             confidence=90,
-            summary="Assertion failure — a design invariant or protocol check was violated",
+            summary="Assertion failure - a design invariant or protocol check was violated",
             events=[f.event for f in assertion_failures],
             recommendations=[
                 Recommendation(
@@ -120,7 +120,7 @@ class TimeoutRule(Rule):
             return None
         return self._result(
             confidence=85,
-            summary="Timeout — the test hung and was killed by a watchdog/phase timeout",
+            summary="Timeout - the test hung and was killed by a watchdog/phase timeout",
             events=matched,
             recommendations=[
                 Recommendation(
@@ -138,7 +138,7 @@ class TimeoutRule(Rule):
 
 
 class TestbenchFailureRule(Rule):
-    """Scoreboard/comparison mismatch — likely a checking-environment issue."""
+    """Scoreboard/comparison mismatch - likely a checking-environment issue."""
 
     name = "testbench-failure"
     category = FailureCategory.TESTBENCH_FAILURE
@@ -155,7 +155,7 @@ class TestbenchFailureRule(Rule):
             return None
         return self._result(
             confidence=80,
-            summary="Likely testbench issue — scoreboard or comparison mismatch",
+            summary="Likely testbench issue - scoreboard or comparison mismatch",
             events=matched,
             recommendations=[
                 Recommendation(
@@ -184,7 +184,7 @@ class FatalErrorRule(Rule):
             return None
         return self._result(
             confidence=70,
-            summary="Fatal error — the simulation aborted",
+            summary="Fatal error - the simulation aborted",
             events=fatal,
             recommendations=[
                 Recommendation(

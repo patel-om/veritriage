@@ -18,7 +18,7 @@ from traceiq.rules.builtin import default_rules
 class RuleEngine:
     """Evaluates a set of rules and always produces a primary classification.
 
-    The engine itself contains no failure knowledge — that lives in the rules.
+    The engine itself contains no failure knowledge - that lives in the rules.
     Extend by passing extra rules to the constructor or calling
     :meth:`register`; no engine changes needed.
     """
