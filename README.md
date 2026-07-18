@@ -23,8 +23,10 @@ Regression failure
   -> Normalize                (Evidence Graph: typed nodes + typed edges)
   -> Correlate evidence       (temporal, causal, cross-artifact links)
   -> Classify                 (rule engine over the graph, confidence-ranked)
+  -> Reason                   (evidence selection -> signals -> competing
+                               hypotheses -> traceable confidence -> steps)
   -> Report                   (analysis.json + evidence_graph.json + report.html)
-  -> Optional AI narrative    (reasons ONLY over the graph, cites node IDs)
+  -> Optional AI review       (reasons ONLY over selected evidence, cites node IDs)
 ```
 
 **Design principles**
@@ -38,7 +40,11 @@ Regression failure
   in without touching the rule engine or the AI layer.
 
 See [docs/EVIDENCE_GRAPH.md](docs/EVIDENCE_GRAPH.md) for why this architecture
-improves scalability, explainability, and deterministic reasoning.
+improves scalability, explainability, and deterministic reasoning, and
+[docs/REASONING_ENGINE.md](docs/REASONING_ENGINE.md) for the multi-stage
+reasoning pipeline: how it generates multiple ranked, evidence-backed
+hypotheses with traceable confidence, and how deterministic rules and AI
+collaborate without the AI ever reading a raw file.
 
 ## Installation
 

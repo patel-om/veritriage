@@ -19,11 +19,21 @@ def test_analyze_writes_json_graph_and_html(fixture_log, tmp_path):
     assert result.exit_code == 1, result.output
 
     data = json.loads((tmp_path / "analysis.json").read_text())
-    assert data["schema_version"] == "2"
+    assert data["schema_version"] == "3"
     assert data["classification"]["category"] == "testbench_failure"
     assert data["classification"]["confidence"] == 80
     assert data["classification"]["evidence"]
     assert data["classification"]["evidence"][0]["node_id"].startswith("ev-")
+
+    # Reasoning output: ranked hypotheses with evidence and traceable confidence.
+    hypotheses = data["reasoning"]["hypotheses"]
+    assert hypotheses, "expected ranked hypotheses in analysis.json"
+    assert hypotheses[0]["category"] == "testbench_issue"
+    confidences = [h["confidence"] for h in hypotheses]
+    assert confidences == sorted(confidences, reverse=True)
+    assert all(h["evidence_ids"] for h in hypotheses)
+    assert data["reasoning"]["recommendations"]
+    assert "Hypotheses" in result.output
 
     graph = json.loads((tmp_path / "evidence_graph.json").read_text())
     assert graph["nodes"]

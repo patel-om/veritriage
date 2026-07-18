@@ -12,8 +12,8 @@ from rich.panel import Panel
 from rich.table import Table
 
 import veritriage
-from veritriage.analyzers import AISummarizer, AISummaryError
 from veritriage.models import AnalysisReport, Severity
+from veritriage.reasoning import AIReasoner, AIReasoningError
 from veritriage.parsers import available_parsers
 from veritriage.pipeline import analyze as run_analysis
 from veritriage.reports import HtmlReportGenerator
@@ -45,10 +45,10 @@ def analyze(
         None, "--parser", help="Force one registered parser for every artifact instead of auto-detecting."
     ),
     ai: bool = typer.Option(
-        False, "--ai/--no-ai", help="Also generate an AI summary (requires 'pip install veritriage[ai]')."
+        False, "--ai/--no-ai", help="Also run the AI review stage (requires 'pip install veritriage[ai]')."
     ),
     ai_model: str = typer.Option(
-        "claude-opus-4-8", "--ai-model", help="Claude model to use for the AI summary."
+        "claude-opus-4-8", "--ai-model", help="Claude model to use for the AI review."
     ),
 ) -> None:
     """Analyze verification artifacts into an evidence graph and reports."""
@@ -62,16 +62,22 @@ def analyze(
         raise typer.Exit(code=2)
     report, graph = outcome
 
-    if ai:
+    if ai and report.reasoning is not None:
         try:
-            report.ai_summary = AISummarizer(model=ai_model).summarize(report, graph)
-        except AISummaryError as exc:
-            # AI is optional by design: warn and continue with the deterministic report.
-            _err.print(f"[yellow]warning:[/yellow] AI summary skipped - {escape(str(exc))}")
+            review = AIReasoner(model=ai_model).review(graph, report.reasoning)
+            report.reasoning.ai_review = review
+            report.ai_summary = review.narrative
+            for hypothesis in report.reasoning.hypotheses:
+                note = review.hypothesis_notes.get(hypothesis.id)
+                if note:
+                    hypothesis.ai_note = note
+        except AIReasoningError as exc:
+            # AI is optional by design: warn and continue with the deterministic result.
+            _err.print(f"[yellow]warning:[/yellow] AI review skipped - {escape(str(exc))}")
 
     json_path = write_json(report, output_dir / "analysis.json")
     graph_path = write_json(graph, output_dir / "evidence_graph.json")
-    html_path = HtmlReportGenerator().write(report, output_dir / "report.html")
+    html_path = HtmlReportGenerator().write(report, output_dir / "report.html", graph=graph)
 
     _print_summary(report)
     console.print(f"\n[dim]wrote[/dim] {json_path}")
@@ -131,7 +137,30 @@ def _print_summary(report: AnalysisReport) -> None:
             node = ev.node_id or ""
             loc = " ".join(x for x in (when, where, node) if x)
             body.add_row(f"  • {escape(ev.description)}" + (f"  [dim]({loc})[/dim]" if loc else ""))
-    if c.recommendations:
+    if report.reasoning is not None and report.reasoning.hypotheses:
+        body.add_row("")
+        body.add_row("[bold]Hypotheses[/bold]")
+        for hypothesis in report.reasoning.hypotheses:
+            pct = f"{hypothesis.confidence * 100:.0f}%"
+            body.add_row(
+                f"  • {escape(hypothesis.title)}  [dim]{pct} "
+                f"({len(hypothesis.evidence_ids)} evidence nodes)[/dim]"
+            )
+    steps = (
+        report.reasoning.recommendations
+        if report.reasoning is not None and report.reasoning.recommendations
+        else None
+    )
+    if steps:
+        body.add_row("")
+        body.add_row("[bold]Next steps[/bold]")
+        for rec in sorted(steps, key=lambda r: r.priority)[:4]:
+            module = f" [{rec.module}]" if rec.module else ""
+            body.add_row(
+                f"  {rec.priority}. {escape(rec.action)}"
+                f"  [dim](effort {rec.effort}{escape(module)})[/dim]"
+            )
+    elif c.recommendations:
         body.add_row("")
         body.add_row("[bold]Next steps[/bold]")
         for i, rec in enumerate(sorted(c.recommendations, key=lambda r: r.priority), start=1):

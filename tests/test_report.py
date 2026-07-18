@@ -72,3 +72,25 @@ def test_report_carries_graph_stats(fixture_log):
     assert stats.node_count > 0
     assert stats.nodes_by_type.get("test_metadata") == 1
     assert stats.edges_by_relation.get("part_of", 0) >= 1
+
+
+def test_html_investigation_sections(fixture_log):
+    outcome = analyze(
+        [fixture_log("uvm_scoreboard.log"), fixture_log("coverage.txt")]
+    )
+    html = HtmlReportGenerator().render(outcome.report, graph=outcome.graph)
+    assert "Investigation - Competing Hypotheses" in html
+    assert "Recommended Debugging Steps" in html
+    assert "Confidence trace" in html
+    assert "Likely testbench issue" in html
+    # Alternatives are visible, not just the winner.
+    assert "Likely RTL bug" in html
+    # The working-set evidence graph is drawn inline.
+    assert '<svg class="evgraph"' in html
+
+
+def test_html_without_graph_omits_svg_but_keeps_hypotheses(fixture_log):
+    report = analyze(fixture_log("uvm_timeout.log")).report
+    html = HtmlReportGenerator().render(report)
+    assert "Investigation - Competing Hypotheses" in html
+    assert '<svg class="evgraph"' not in html

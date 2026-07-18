@@ -69,9 +69,18 @@ flowchart TB
   artifact types extend classification without engine changes (e.g. the
   compile rule fires on `compile_log` nodes from a dedicated compile log).
 
+## Reasoning engine
+
+Downstream of classification, the multi-stage reasoning pipeline
+(`veritriage/reasoning/`) turns the graph into an investigation: evidence
+selection -> deterministic signals -> competing hypothesis generation ->
+ranking with traceable confidence propagation -> categorized recommendations,
+with an optional AI review strictly after the deterministic stages. Full
+design and diagrams: [REASONING_ENGINE.md](REASONING_ENGINE.md).
+
 ## Report layer
 
-`AnalysisReport` (schema v2) carries the classification, merged run summary,
+`AnalysisReport` (schema v3) carries the classification, merged run summary,
 graph statistics, and evidence with node references. One analysis writes three
 artifacts: `analysis.json`, `evidence_graph.json` (the full serialized graph),
 and `report.html` (self-contained, light/dark aware, with an Evidence Graph

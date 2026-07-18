@@ -110,7 +110,9 @@ class EvidenceGraph(BaseModel):
 
     # --- The AI boundary ---------------------------------------------------
 
-    def to_reasoning_view(self, max_nodes: int = 60) -> dict[str, Any]:
+    def to_reasoning_view(
+        self, max_nodes: int = 60, node_ids: set[str] | None = None
+    ) -> dict[str, Any]:
         """The ONLY payload the AI layer is allowed to consume.
 
         A bounded, normalized projection of the graph: failing evidence first,
@@ -126,6 +128,8 @@ class EvidenceGraph(BaseModel):
             self.with_severity(Severity.WARNING),
         ):
             for node in group:
+                if node_ids is not None and node.id not in node_ids:
+                    continue
                 if node.id not in seen:
                     seen.add(node.id)
                     ordered.append(node)

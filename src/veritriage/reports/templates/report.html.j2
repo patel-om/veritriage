@@ -133,6 +133,28 @@
 
   .placeholder { border-style: dashed; color: var(--muted); }
   footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
+
+  /* Investigation */
+  p.lead { color: var(--ink-2); margin: 0 0 14px; }
+  .hyp-card { margin-bottom: 14px; }
+  .ev-refs { margin: 12px 0 0; font-size: 12.5px; color: var(--muted); }
+  .ev-refs code { color: var(--ink-2); }
+  .ai-note { margin: 10px 0 0; color: var(--ink-2); font-size: 13.5px; border-left: 3px solid var(--meter); padding-left: 10px; }
+  details { margin-top: 12px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
+  details[open] summary { margin-bottom: 8px; }
+
+  /* Evidence graph drawing */
+  .graph-scroll { overflow-x: auto; margin-top: 14px; }
+  svg.evgraph { display: block; }
+  svg.evgraph text { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; fill: var(--ink-2); }
+  svg.evgraph text.col-label { font: 600 11px system-ui, sans-serif; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  svg.evgraph line.edge { stroke: var(--muted); stroke-width: 1.2; opacity: 0.55; }
+  svg.evgraph circle { stroke: var(--surface); stroke-width: 2; }
+  svg.evgraph circle.critical { fill: var(--critical); }
+  svg.evgraph circle.serious { fill: var(--serious); }
+  svg.evgraph circle.warning { fill: var(--warning); }
+  svg.evgraph circle.muted { fill: var(--muted); }
 </style>
 </head>
 <body>
@@ -168,6 +190,31 @@
         relationships extracted from {{ report.input_files | length }} artifact{{ "s" if report.input_files | length != 1 }}.
         Full graph in <code>evidence_graph.json</code>; every conclusion below cites node IDs from it.
       </p>
+      {% if graph_viz %}
+      <div class="graph-scroll">
+        <svg class="evgraph" width="{{ graph_viz.width }}" height="{{ graph_viz.height }}"
+             viewBox="0 0 {{ graph_viz.width }} {{ graph_viz.height }}"
+             role="img" aria-label="Working-set evidence graph: nodes by artifact type with relationships">
+          {% for col in graph_viz.columns %}
+          <text class="col-label" x="{{ col.x }}" y="18">{{ col.label }}</text>
+          {% endfor %}
+          {% for e in graph_viz.edges %}
+          <line class="edge" x1="{{ e.x1 }}" y1="{{ e.y1 }}" x2="{{ e.x2 }}" y2="{{ e.y2 }}"
+                {% if e.dashed %}stroke-dasharray="4 3"{% endif %}><title>{{ e.tooltip }}</title></line>
+          {% endfor %}
+          {% for n in graph_viz.nodes %}
+          <g>
+            <circle class="{{ n.color }}" cx="{{ n.x }}" cy="{{ n.y }}" r="7"><title>{{ n.tooltip }}</title></circle>
+            <text x="{{ n.x + 13 }}" y="{{ n.y + 4 }}">{{ n.label }}</text>
+          </g>
+          {% endfor %}
+        </svg>
+      </div>
+      <p style="margin: 8px 0 0; font-size: 12px; color: var(--muted);">
+        Working-set nodes only; hover a node or edge for details. Dashed edges are
+        cross-artifact correlations.
+      </p>
+      {% endif %}
       <table>
         <thead><tr><th>Artifact type</th><th>Nodes</th></tr></thead>
         <tbody>
@@ -217,6 +264,85 @@
       {% endif %}
     </div>
   </section>
+
+  {% if report.reasoning and report.reasoning.hypotheses %}
+  <section>
+    <h2>Investigation - Competing Hypotheses</h2>
+    <p class="lead">
+      <b>What happened:</b> {{ report.classification.summary }}.
+      <b>Why we believe this:</b> {{ report.reasoning.signals | length }} deterministic
+      signal{{ "s" if report.reasoning.signals | length != 1 }} evaluated over
+      {{ report.reasoning.working_set.items | length }} selected evidence nodes rank the
+      explanations below. Alternatives are shown so nothing is concluded without contrast.
+    </p>
+    {% for hyp in report.reasoning.hypotheses %}
+    <div class="card hyp-card">
+      <div class="verdict">
+        <span class="chip"><span class="dot {{ hypothesis_role[hyp.category] }}"></span>{{ hyp.title }}</span>
+        <span class="rule-name">{{ hyp.category.display_name }} · generator: {{ hyp.generated_by }}</span>
+      </div>
+      <p class="verdict-summary">{{ hyp.statement }}</p>
+      <div class="meter">
+        <div class="meter-head"><span>Confidence</span><b>{{ "%.0f" | format(hyp.confidence * 100) }}%</b></div>
+        <div class="track"><div class="fill" style="width: {{ (hyp.confidence * 100) | round }}%"></div></div>
+      </div>
+      <p class="ev-refs">Supporting evidence:
+        {% for nid in hyp.evidence_ids %}<code>{{ nid }}</code>{% if not loop.last %} {% endif %}{% endfor %}
+      </p>
+      {% if hyp.ai_note %}
+      <p class="ai-note">AI review: {{ hyp.ai_note }}</p>
+      {% endif %}
+      <details>
+        <summary>Confidence trace</summary>
+        <table>
+          <thead><tr><th>Step</th><th>Value</th><th>Reason</th></tr></thead>
+          <tbody>
+            <tr><td>base ({{ hyp.generated_by }})</td><td class="num">{{ "%.2f" | format(hyp.confidence_trace.base) }}</td><td>prior plausibility</td></tr>
+            {% for c in hyp.confidence_trace.contributions %}
+            <tr><td>signal: {{ c.source }}</td><td class="num">{{ "%+.2f" | format(c.delta) }}</td><td>{{ c.reason }}</td></tr>
+            {% endfor %}
+            <tr><td>evidence factor</td><td class="num">x{{ "%.2f" | format(hyp.confidence_trace.evidence_factor) }}</td><td>mean extraction confidence of cited nodes</td></tr>
+            <tr><td><b>final</b></td><td class="num"><b>{{ "%.2f" | format(hyp.confidence_trace.final) }}</b></td><td></td></tr>
+          </tbody>
+        </table>
+      </details>
+    </div>
+    {% endfor %}
+    {% if report.reasoning.ai_review and report.reasoning.ai_review.missing_evidence %}
+    <div class="card placeholder">
+      <b>Missing evidence</b> (identified by the AI review): the following would best
+      discriminate between hypotheses.
+      <ul style="margin: 8px 0 0;">
+      {% for item in report.reasoning.ai_review.missing_evidence %}
+        <li>{{ item }}</li>
+      {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </section>
+
+  {% if report.reasoning.recommendations %}
+  <section>
+    <h2>Recommended Debugging Steps</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>#</th><th>Action</th><th>Module</th><th>Effort</th><th>Confidence</th></tr></thead>
+        <tbody>
+        {% for rec in report.reasoning.recommendations %}
+          <tr>
+            <td class="num">{{ rec.priority }}</td>
+            <td>{{ rec.action }}<span class="why" style="display:block; color: var(--muted); font-size: 12.5px;">{{ rec.rationale }}</span></td>
+            <td>{{ rec.module or "-" }}</td>
+            <td>{{ rec.effort }}</td>
+            <td class="num">{{ "%.0f" | format(rec.confidence * 100) }}%</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+  {% endif %}
 
   {% if report.classification.evidence %}
   <section>

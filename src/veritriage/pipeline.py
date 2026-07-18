@@ -18,6 +18,7 @@ from veritriage.graph.graph import EvidenceGraph
 from veritriage.models import AnalysisReport, LogSummary, Severity
 from veritriage.parsers import find_parser, get_parser
 from veritriage.parsers.base import ParseResult
+from veritriage.reasoning import ReasoningEngine
 from veritriage.rules import RuleEngine
 
 
@@ -63,6 +64,7 @@ def analyze(
 
     engine = engine or RuleEngine()
     primary, alternatives = engine.classify(graph)
+    reasoning = ReasoningEngine().reason(graph)
 
     # Keep the report focused: warnings and above. INFO stays available to
     # parsers but would bloat analysis.json on chatty logs.
@@ -78,6 +80,7 @@ def analyze(
         alternatives=alternatives,
         failures=[f for r in results for f in r.failures],
         events=notable_events,
+        reasoning=reasoning,
     )
     return AnalysisOutcome(report=report, graph=graph)
 
