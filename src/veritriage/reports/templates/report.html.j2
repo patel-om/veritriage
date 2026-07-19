@@ -344,6 +344,54 @@
   {% endif %}
   {% endif %}
 
+  {% if report.history %}
+  <section>
+    <h2>Historical Context</h2>
+    <div class="card">
+      {% if report.history.seen_before %}
+      <p class="lead">
+        <span class="chip"><span class="dot serious"></span>Seen before</span>
+        This exact failure signature (<code>{{ report.history.signature }}</code>) appears in
+        {{ report.history.times_seen }} prior regression{{ "s" if report.history.times_seen != 1 }}
+        in the database.
+      </p>
+      {% elif report.history.similar %}
+      <p class="lead">
+        <span class="chip"><span class="dot warning"></span>Similar failures found</span>
+        No identical signature in the database, but {{ report.history.similar | length }}
+        historical failure{{ "s" if report.history.similar | length != 1 }} resemble this one.
+      </p>
+      {% elif report.classification.category.value != "no_failure" %}
+      <p class="lead">
+        <span class="chip"><span class="dot good"></span>New failure</span>
+        Nothing in the regression database matches this failure; it is new
+        (signature <code>{{ report.history.signature }}</code>, recorded as
+        <code>{{ report.history.regression_id }}</code>).
+      </p>
+      {% else %}
+      <p class="lead">Clean run, recorded as <code>{{ report.history.regression_id }}</code>.</p>
+      {% endif %}
+      {% if report.history.similar %}
+      <table>
+        <thead><tr><th>Regression</th><th>When</th><th>Test</th><th>Classification</th><th>Historical root cause</th><th>Similarity</th></tr></thead>
+        <tbody>
+        {% for s in report.history.similar %}
+          <tr>
+            <td><code>{{ s.regression_id }}</code></td>
+            <td class="num">{{ s.created_at[:16] | replace("T", " ") }}</td>
+            <td>{{ s.test_name or "-" }}</td>
+            <td>{{ s.classification | replace("_", " ") | title }}</td>
+            <td>{{ s.root_cause }}</td>
+            <td class="num">{{ "exact" if s.signature_match else "%.0f%%" | format(s.score * 100) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
   {% if report.classification.evidence %}
   <section>
     <h2>Evidence Timeline</h2>

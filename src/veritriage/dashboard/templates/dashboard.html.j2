@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VeriTriage - Regression Intelligence Dashboard</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page:           #f9f9f7;
+    --surface:        #fcfcfb;
+    --ink:            #0b0b0b;
+    --ink-2:          #52514e;
+    --muted:          #898781;
+    --hairline:       rgba(11,11,11,0.10);
+    --grid:           #e1e0d9;
+    --meter:          #2a78d6;
+    --meter-track:    #e1e0d9;
+    --good:           #0ca30c;
+    --warning:        #fab219;
+    --serious:        #ec835a;
+    --critical:       #d03b3b;
+    --heat:           58, 135, 229;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page:        #0d0d0d;
+      --surface:     #1a1a19;
+      --ink:         #ffffff;
+      --ink-2:       #c3c2b7;
+      --muted:       #898781;
+      --hairline:    rgba(255,255,255,0.10);
+      --grid:        #2c2c2a;
+      --meter:       #3987e5;
+      --meter-track: #2c2c2a;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page:        #0d0d0d;
+    --surface:     #1a1a19;
+    --ink:         #ffffff;
+    --ink-2:       #c3c2b7;
+    --muted:       #898781;
+    --hairline:    rgba(255,255,255,0.10);
+    --grid:        #2c2c2a;
+    --meter:       #3987e5;
+    --meter-track: #2c2c2a;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 64px; }
+  header.masthead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 8px; }
+  .brand { font-size: 20px; font-weight: 700; letter-spacing: 0.02em; }
+  .brand small { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .meta { color: var(--ink-2); font-size: 13px; margin: 0 0 24px; }
+  .meta code { color: var(--ink-2); }
+  section { margin-top: 28px; }
+  h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 12px; }
+  .card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 10px; padding: 18px 20px; }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .tile { background: var(--surface); border: 1px solid var(--hairline); border-radius: 10px; padding: 14px 16px; }
+  .tile .label { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-2); }
+  .tile .value { font-size: 28px; font-weight: 700; color: var(--ink); margin-top: 2px; }
+  .tile .value small { font-size: 14px; font-weight: 500; color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+  .dot.good { background: var(--good); } .dot.warning { background: var(--warning); }
+  .dot.serious { background: var(--serious); } .dot.critical { background: var(--critical); }
+  .dot.muted { background: var(--muted); } .dot.meter { background: var(--meter); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--grid); }
+  td { padding: 7px 12px 7px 0; border-bottom: 1px solid var(--grid); color: var(--ink-2); vertical-align: top; }
+  td.num { font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: none; }
+  .scroll-x { overflow-x: auto; }
+
+  .chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--hairline); border-radius: 999px; padding: 2px 11px; font-weight: 600; font-size: 12.5px; color: var(--ink); white-space: nowrap; }
+
+  /* Horizontal bar lists (single measure: magnitude -> sequential blue) */
+  .bars { display: grid; gap: 8px; }
+  .bar-row { display: grid; grid-template-columns: minmax(120px, 40%) 1fr auto; align-items: center; gap: 10px; font-size: 13px; }
+  .bar-row .label { color: var(--ink-2); overflow-wrap: anywhere; }
+  .bar-row .track { height: 8px; border-radius: 4px; background: var(--meter-track); overflow: hidden; }
+  .bar-row .fill { height: 100%; border-radius: 4px; background: var(--meter); }
+  .bar-row .count { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 12.5px; }
+  .bar-row .count small { color: var(--muted); font-weight: 400; }
+
+  /* Trend: runs (blue) with failures (serious) per day */
+  .trend { display: grid; gap: 6px; }
+  .trend-row { display: grid; grid-template-columns: 92px 1fr auto; align-items: center; gap: 10px; font-size: 12.5px; }
+  .trend-row .day { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .trend-row .lane { position: relative; height: 14px; }
+  .trend-row .runs, .trend-row .fails { position: absolute; left: 0; top: 3px; height: 8px; border-radius: 4px; }
+  .trend-row .runs { background: var(--meter-track); top: 0; height: 14px; border-radius: 5px; }
+  .trend-row .fails { background: var(--serious); }
+  .trend-row .n { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .legend { display: flex; gap: 16px; align-items: center; font-size: 12px; color: var(--ink-2); margin-top: 10px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 14px; height: 8px; border-radius: 4px; }
+
+  /* Heatmap */
+  table.heat td.cell { text-align: center; min-width: 64px; padding: 6px 8px; border-radius: 4px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  table.heat td, table.heat th { border-bottom: none; }
+  table.heat th.rot { font-size: 11px; }
+
+  .cluster { margin-bottom: 12px; }
+  .cluster:last-child { margin-bottom: 0; }
+  .cluster .head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .cluster .detail { color: var(--muted); font-size: 12.5px; margin-top: 4px; overflow-wrap: anywhere; }
+
+  .empty { color: var(--muted); }
+  footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="brand">VeriTriage<small>regression intelligence dashboard</small></div>
+  </header>
+  <p class="meta">
+    regression database <code>{{ db_path }}</code> · generated {{ generated }}
+  </p>
+
+  <section>
+    <h2>Regression History</h2>
+    <div class="tiles">
+      <div class="tile"><div class="label"><span class="dot meter"></span>Analyzed runs</div><div class="value">{{ a.total_runs }}</div></div>
+      <div class="tile"><div class="label"><span class="dot serious"></span>Failures</div><div class="value">{{ a.total_failures }} <small>{{ "%.0f" | format(a.failure_rate * 100) }}%</small></div></div>
+      <div class="tile"><div class="label"><span class="dot muted"></span>Distinct signatures</div><div class="value">{{ a.distinct_signatures }}</div></div>
+      <div class="tile"><div class="label"><span class="dot muted"></span>Failure clusters</div><div class="value">{{ a.clusters | length }}</div></div>
+      <div class="tile"><div class="label"><span class="dot warning"></span>Unknown failures</div><div class="value">{{ a.unknown_failures }} <small>{{ "%.0f" | format(a.unknown_rate * 100) }}%</small></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recent Regressions</h2>
+    <div class="card scroll-x">
+      {% if recent %}
+      <table>
+        <thead><tr><th>When</th><th>Regression</th><th>Test</th><th>Classification</th><th>Conf.</th><th>Top hypothesis</th><th>Commit</th></tr></thead>
+        <tbody>
+        {% for r in recent %}
+          <tr>
+            <td class="num">{{ r.when }}</td>
+            <td><code>{{ r.id }}</code></td>
+            <td>{{ r.test }}</td>
+            <td><span class="chip"><span class="dot {{ r.role }}"></span>{{ r.category }}</span></td>
+            <td class="num">{{ r.confidence }}%</td>
+            <td>{{ r.hypothesis }}</td>
+            <td class="num">{{ r.commit }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty">No regressions stored yet. Run <code>veritriage analyze ...</code> to populate the database.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if a.clusters %}
+  <section>
+    <h2>Failure Clusters</h2>
+    <div class="card">
+      {% for c in a.clusters %}
+      <div class="cluster">
+        <div class="head">
+          <span class="chip"><span class="dot serious"></span>{{ c.label }}</span>
+          <span style="color: var(--ink-2); font-size: 13px;">{{ c.size }} regression{{ "s" if c.size != 1 }}</span>
+        </div>
+        <p class="detail">
+          tests: {{ c.tests | join(", ") if c.tests else "n/a" }}
+          {% if c.modules %} · modules: {{ c.modules | join(", ") }}{% endif %}
+          · signatures: {% for s in c.signatures %}<code>{{ s }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+        </p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <div class="cols">
+    {% if a.failing_modules %}
+    <section>
+      <h2>Most Unstable Modules</h2>
+      <div class="card">
+        <div class="bars">
+          {% for b in bars(a.failing_modules) %}
+          <div class="bar-row"><span class="label">{{ b.label }}</span><span class="track"><span class="fill" style="width: {{ b.width }}%"></span></span><span class="count">{{ b.count }} <small>{{ b.share }}</small></span></div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+    {% endif %}
+    {% if a.assertion_hotspots %}
+    <section>
+      <h2>Assertion Hotspots</h2>
+      <div class="card">
+        <div class="bars">
+          {% for b in bars(a.assertion_hotspots) %}
+          <div class="bar-row"><span class="label">{{ b.label }}</span><span class="track"><span class="fill" style="width: {{ b.width }}%"></span></span><span class="count">{{ b.count }} <small>{{ b.share }}</small></span></div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+    {% endif %}
+    {% if a.failure_categories %}
+    <section>
+      <h2>Failure Types</h2>
+      <div class="card">
+        <div class="bars">
+          {% for b in bars(a.failure_categories) %}
+          <div class="bar-row"><span class="label">{{ b.label }}</span><span class="track"><span class="fill" style="width: {{ b.width }}%"></span></span><span class="count">{{ b.count }} <small>{{ b.share }}</small></span></div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+    {% endif %}
+    {% if a.signal_frequency %}
+    <section>
+      <h2>Reasoning Signal Frequency</h2>
+      <div class="card">
+        <div class="bars">
+          {% for b in bars(a.signal_frequency) %}
+          <div class="bar-row"><span class="label">{{ b.label }}</span><span class="track"><span class="fill" style="width: {{ b.width }}%"></span></span><span class="count">{{ b.count }} <small>{{ b.share }}</small></span></div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+    {% endif %}
+    {% if a.confidence_histogram %}
+    <section>
+      <h2>Classification Confidence</h2>
+      <div class="card">
+        <div class="bars">
+          {% for b in bars(a.confidence_histogram) %}
+          <div class="bar-row"><span class="label">{{ b.label }}</span><span class="track"><span class="fill" style="width: {{ b.width }}%"></span></span><span class="count">{{ b.count }} <small>{{ b.share }}</small></span></div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+    {% endif %}
+    {% if a.repeated_recommendations %}
+    <section>
+      <h2>Most Repeated Recommendations</h2>
+      <div class="card">
+        <div class="bars">
+          {% for b in bars(a.repeated_recommendations) %}
+          <div class="bar-row"><span class="label">{{ b.label }}</span><span class="track"><span class="fill" style="width: {{ b.width }}%"></span></span><span class="count">{{ b.count }} <small>{{ b.share }}</small></span></div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+    {% endif %}
+  </div>
+
+  {% if trend %}
+  <section>
+    <h2>Failure Trend</h2>
+    <div class="card">
+      <div class="trend">
+        {% for t in trend %}
+        <div class="trend-row">
+          <span class="day">{{ t.day }}</span>
+          <span class="lane"><span class="runs" style="width: {{ t.runs_w }}%"></span><span class="fails" style="width: {{ t.fail_w }}%"></span></span>
+          <span class="n">{{ t.failures }} / {{ t.runs }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--meter-track);"></span>runs</span>
+        <span><span class="swatch" style="background: var(--serious);"></span>failures</span>
+        <span>counts shown as failures / runs</span>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if heat %}
+  <section>
+    <h2>Regression Heatmap</h2>
+    <div class="card scroll-x">
+      <table class="heat">
+        <thead>
+          <tr><th>Module</th>{% for c in heat.categories %}<th class="rot">{{ c }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody>
+        {% for row in heat.rows %}
+          <tr>
+            <td>{{ row.module }}</td>
+            {% for cell in row.cells %}
+            <td class="cell" style="background: rgba(var(--heat), {{ cell.alpha }});">{{ cell.count if cell.count }}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  <footer>
+    VeriTriage regression intelligence · deterministic signatures, similarity, and analytics over stored Evidence Graphs · no raw log is ever re-read.
+  </footer>
+</div>
+</body>
+</html>

@@ -4,7 +4,10 @@
 raw verification artifacts (simulation logs, compile logs, coverage summaries,
 test metadata) into a normalized **Evidence Graph**, a deterministic failure
 classification with confidence and evidence, an engineering-grade HTML report,
-and suggested next debugging steps - in one command.
+and suggested next debugging steps - in one command. Every analysis is also
+recorded into a persistent **Regression Database**, so the platform tells you
+whether this failure has been seen before, what resembled it, and what the
+historical root cause was.
 
 ```
 veritriage analyze simulation.log coverage.txt test_metadata.json
@@ -25,6 +28,8 @@ Regression failure
   -> Classify                 (rule engine over the graph, confidence-ranked)
   -> Reason                   (evidence selection -> signals -> competing
                                hypotheses -> traceable confidence -> steps)
+  -> Remember                 (regression database: signature, similarity,
+                               "have we seen this before?")
   -> Report                   (analysis.json + evidence_graph.json + report.html)
   -> Optional AI review       (reasons ONLY over selected evidence, cites node IDs)
 ```
@@ -40,11 +45,14 @@ Regression failure
   in without touching the rule engine or the AI layer.
 
 See [docs/EVIDENCE_GRAPH.md](docs/EVIDENCE_GRAPH.md) for why this architecture
-improves scalability, explainability, and deterministic reasoning, and
+improves scalability, explainability, and deterministic reasoning,
 [docs/REASONING_ENGINE.md](docs/REASONING_ENGINE.md) for the multi-stage
 reasoning pipeline: how it generates multiple ranked, evidence-backed
 hypotheses with traceable confidence, and how deterministic rules and AI
-collaborate without the AI ever reading a raw file.
+collaborate without the AI ever reading a raw file, and
+[docs/REGRESSION_INTELLIGENCE.md](docs/REGRESSION_INTELLIGENCE.md) for the
+regression database: deterministic failure signatures, similar-failure
+search, clustering, analytics, and the engineering dashboard.
 
 ## Installation
 
@@ -68,6 +76,12 @@ veritriage analyze simulation.log compile.log coverage.txt test_metadata.json -o
 # Add an AI summary grounded in the evidence graph
 veritriage analyze simulation.log -o out/ --ai
 
+# Regression intelligence (database defaults to .veritriage/regressions.db)
+veritriage history                     # recent regressions in the database
+veritriage dashboard -o out/           # engineering analytics dashboard
+veritriage feedback reg-... --diagnosis correct --root-cause "..."
+veritriage analyze simulation.log --no-history   # opt out of recording
+
 # Introspection
 veritriage parsers
 veritriage version
@@ -77,9 +91,13 @@ Each run writes three artifacts to the output directory:
 
 | File | Contents |
 |---|---|
-| `analysis.json` | Classification, confidence, evidence (with graph node IDs), run summary, graph stats |
+| `analysis.json` | Classification, confidence, evidence (with graph node IDs), reasoning, historical context, run summary, graph stats |
 | `evidence_graph.json` | The full serialized Evidence Graph: every node and relationship |
-| `report.html` | Self-contained EDA-style dashboard (light/dark), evidence timeline, next steps |
+| `report.html` | Self-contained EDA-style dashboard (light/dark), hypotheses, historical context, evidence timeline, next steps |
+
+Each analysis is also stored in the regression database (opt out with
+`--no-history`), which powers `veritriage history`, `veritriage dashboard`,
+and the "seen before" context in every report.
 
 Exit codes: `0` clean run, `1` failure classified (useful for CI gating),
 `2` usage error.
@@ -125,7 +143,9 @@ the rule engine and AI layer are untouched by design
 ## Roadmap (documented, not built)
 
 Waveform metadata + FSDB/VCD indexing -> spec retrieval and git-history
-correlation as new node types -> deeper AI reasoning over the correlated graph
+correlation as new node types -> learned similarity embeddings behind the
+existing `EmbeddingProvider` interface -> Jira/CI adapters around the
+RegressionRecord vocabulary -> deeper AI reasoning over the correlated graph
 -> VS Code extension, Slack integration, GitHub Action, MCP server.
 
 ## License

@@ -78,13 +78,29 @@ ranking with traceable confidence propagation -> categorized recommendations,
 with an optional AI review strictly after the deterministic stages. Full
 design and diagrams: [REASONING_ENGINE.md](REASONING_ENGINE.md).
 
+## Regression intelligence
+
+Downstream of reasoning, the historical layer (`storage/`, `signatures/`,
+`similarity/`, `history/`, `analytics/`, `feedback/`, `dashboard/`) records
+every completed analysis into a persistent SQLite Regression Database,
+fingerprints it with a deterministic Failure Signature, finds similar past
+failures (signature match first, feature-embedding cosine second), and
+augments the report with `HistoricalContext` plus at most one extra
+precedent recommendation. Analytics and the `veritriage dashboard` command
+aggregate the whole history (hotspots, clusters, trends). The reasoning
+packages have no import path to any of this; history augments reasoning,
+never modifies it (pinned by `tests/test_history.py`). Full design:
+[REGRESSION_INTELLIGENCE.md](REGRESSION_INTELLIGENCE.md).
+
 ## Report layer
 
-`AnalysisReport` (schema v3) carries the classification, merged run summary,
-graph statistics, and evidence with node references. One analysis writes three
-artifacts: `analysis.json`, `evidence_graph.json` (the full serialized graph),
-and `report.html` (self-contained, light/dark aware, with an Evidence Graph
-section). The CLI renders the same models to the terminal with Rich.
+`AnalysisReport` (schema v4) carries the classification, merged run summary,
+graph statistics, evidence with node references, the reasoning result, and
+optional historical context. One analysis writes three artifacts:
+`analysis.json`, `evidence_graph.json` (the full serialized graph), and
+`report.html` (self-contained, light/dark aware, with Evidence Graph and
+Historical Context sections). The CLI renders the same models to the
+terminal with Rich.
 
 ## AI layer
 
@@ -111,6 +127,8 @@ reasoning engine; it just sees more nodes.
 | Waveform metadata, FSDB/VCD indexing | parser for the reserved `waveform_metadata` type + a correlation pass |
 | Spec retrieval, git correlation | new node types + correlation passes |
 | Multi-agent / deeper AI reasoning | consumers of `to_reasoning_view()`, behind the same boundary |
+| Jira / CI / emulation / formal integrations | adapters around the RegressionRecord vocabulary |
+| Learned similarity embeddings | an `EmbeddingProvider` implementation in `similarity/` |
 | VS Code / Slack / GitHub Action / MCP server | front-ends over `veritriage.pipeline.analyze()` |
 
 ## Known limitations

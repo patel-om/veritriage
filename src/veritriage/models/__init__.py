@@ -9,6 +9,7 @@ ever touches raw artifact text again. Note: this package must never import
 from veritriage.models.events import Severity, SimulationEvent
 from veritriage.models.evidence import Evidence
 from veritriage.models.failure import AssertionFailure, Failure, FailureCategory
+from veritriage.models.history import HistoricalContext, SimilarFailure
 from veritriage.models.reasoning import (
     AIReview,
     ConfidenceContribution,
@@ -41,6 +42,7 @@ __all__ = [
     "Failure",
     "FailureCategory",
     "GraphStats",
+    "HistoricalContext",
     "Hypothesis",
     "HypothesisCategory",
     "LogSummary",
@@ -49,6 +51,7 @@ __all__ = [
     "ReasoningSignal",
     "SelectedEvidence",
     "Severity",
+    "SimilarFailure",
     "SimulationEvent",
     "WorkingSet",
 ]
