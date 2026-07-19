@@ -122,6 +122,27 @@ def parsers() -> None:
 
 
 @app.command()
+def knowledge() -> None:
+    """List loaded Knowledge Packs and what each one teaches."""
+    from veritriage.knowledge import load_packs
+
+    table = Table(title="Knowledge Packs")
+    for column in ("Pack", "Version", "Domain", "Concepts", "Patterns", "Playbooks", "FSMs"):
+        table.add_column(column)
+    for pack in load_packs():
+        table.add_row(
+            f"{pack.name} ({pack.id})",
+            pack.version,
+            pack.domain,
+            str(len(pack.concepts)),
+            str(len(pack.patterns)),
+            str(len(pack.playbooks)),
+            str(len(pack.state_machines)),
+        )
+    console.print(table)
+
+
+@app.command()
 def dashboard(
     output_dir: Path = typer.Option(
         Path("."), "--output-dir", "-o", help="Directory for dashboard.html."
@@ -248,6 +269,21 @@ def _print_summary(report: AnalysisReport) -> None:
             node = ev.node_id or ""
             loc = " ".join(x for x in (when, where, node) if x)
             body.add_row(f"  • {escape(ev.description)}" + (f"  [dim]({loc})[/dim]" if loc else ""))
+    if report.knowledge is not None and report.knowledge.patterns:
+        body.add_row("")
+        body.add_row("[bold]Known patterns[/bold]")
+        for pattern in report.knowledge.patterns[:3]:
+            body.add_row(
+                f"  • {escape(pattern.name)}  [dim]{pattern.score:.0%} match "
+                f"({pattern.pack} pack, owns: {escape(pattern.ownership)})[/dim]"
+            )
+        if report.knowledge.state_projection and report.knowledge.state_projection.stopped_at:
+            sp = report.knowledge.state_projection
+            reached = " -> ".join(s.state for s in sp.states if s.reached)
+            body.add_row(
+                f"  [dim]{escape(sp.name)}: {escape(reached)} -> "
+                f"stopped before {escape(sp.stopped_at)}[/dim]"
+            )
     if report.history is not None:
         body.add_row("")
         h = report.history

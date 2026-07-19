@@ -78,6 +78,21 @@ ranking with traceable confidence propagation -> categorized recommendations,
 with an optional AI review strictly after the deterministic stages. Full
 design and diagrams: [REASONING_ENGINE.md](REASONING_ENGINE.md).
 
+## Verification Knowledge Engine
+
+Between classification and reasoning, the Knowledge Engine
+(`veritriage/knowledge/`) matches structured domain expertise against the
+Evidence Graph: versioned Knowledge Packs (AXI, UVM, reset/clocking,
+coverage) normalize into a frozen, queryable Verification Knowledge Graph;
+a deterministic clause matcher finds known failure patterns; evidence is
+projected onto protocol state machines to show where progress stopped; and
+matched patterns carry typical causes, ownership, suggested signals,
+specification references, and fixed debug playbooks. Knowledge reaches
+hypothesis ranking through the standard `ReasoningRule` interface (injected
+by the pipeline), so the reasoning engine has no knowledge dependency and
+new packs plug in without touching any existing code. Full design:
+[KNOWLEDGE_ENGINE.md](KNOWLEDGE_ENGINE.md).
+
 ## Regression intelligence
 
 Downstream of reasoning, the historical layer (`storage/`, `signatures/`,
@@ -94,13 +109,13 @@ never modifies it (pinned by `tests/test_history.py`). Full design:
 
 ## Report layer
 
-`AnalysisReport` (schema v4) carries the classification, merged run summary,
-graph statistics, evidence with node references, the reasoning result, and
-optional historical context. One analysis writes three artifacts:
-`analysis.json`, `evidence_graph.json` (the full serialized graph), and
-`report.html` (self-contained, light/dark aware, with Evidence Graph and
-Historical Context sections). The CLI renders the same models to the
-terminal with Rich.
+`AnalysisReport` (schema v5) carries the classification, merged run summary,
+graph statistics, evidence with node references, the reasoning result, the
+knowledge context, and optional historical context. One analysis writes
+three artifacts: `analysis.json`, `evidence_graph.json` (the full
+serialized graph), and `report.html` (self-contained, light/dark aware,
+with Evidence Graph, Verification Knowledge, and Historical Context
+sections). The CLI renders the same models to the terminal with Rich.
 
 ## AI layer
 
@@ -126,6 +141,7 @@ reasoning engine; it just sees more nodes.
 | Assertion-log / richer coverage parsers | new `Parser` subclasses emitting fragments |
 | Waveform metadata, FSDB/VCD indexing | parser for the reserved `waveform_metadata` type + a correlation pass |
 | Spec retrieval, git correlation | new node types + correlation passes |
+| New protocol/domain expertise (TileLink, CHI, PCIe, RISC-V privilege, CDC, coherency, ...) | a Knowledge Pack module with `@register_pack` |
 | Multi-agent / deeper AI reasoning | consumers of `to_reasoning_view()`, behind the same boundary |
 | Jira / CI / emulation / formal integrations | adapters around the RegressionRecord vocabulary |
 | Learned similarity embeddings | an `EmbeddingProvider` implementation in `similarity/` |

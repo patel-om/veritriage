@@ -10,6 +10,16 @@ from veritriage.models.events import Severity, SimulationEvent
 from veritriage.models.evidence import Evidence
 from veritriage.models.failure import AssertionFailure, Failure, FailureCategory
 from veritriage.models.history import HistoricalContext, SimilarFailure
+from veritriage.models.knowledge import (
+    KnowledgeContext,
+    KnowledgeReference,
+    MatchedConcept,
+    MatchedPattern,
+    PlaybookStepView,
+    PlaybookView,
+    StateProgress,
+    StateProjection,
+)
 from veritriage.models.reasoning import (
     AIReview,
     ConfidenceContribution,
@@ -45,7 +55,13 @@ __all__ = [
     "HistoricalContext",
     "Hypothesis",
     "HypothesisCategory",
+    "KnowledgeContext",
+    "KnowledgeReference",
     "LogSummary",
+    "MatchedConcept",
+    "MatchedPattern",
+    "PlaybookStepView",
+    "PlaybookView",
     "Recommendation",
     "ReasoningResult",
     "ReasoningSignal",
@@ -53,5 +69,7 @@ __all__ = [
     "Severity",
     "SimilarFailure",
     "SimulationEvent",
+    "StateProgress",
+    "StateProjection",
     "WorkingSet",
 ]

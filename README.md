@@ -4,10 +4,14 @@
 raw verification artifacts (simulation logs, compile logs, coverage summaries,
 test metadata) into a normalized **Evidence Graph**, a deterministic failure
 classification with confidence and evidence, an engineering-grade HTML report,
-and suggested next debugging steps - in one command. Every analysis is also
-recorded into a persistent **Regression Database**, so the platform tells you
-whether this failure has been seen before, what resembled it, and what the
-historical root cause was.
+and suggested next debugging steps - in one command. A **Verification
+Knowledge Engine** (pluggable Knowledge Packs for AXI, UVM, reset/clocking,
+coverage) matches the evidence against known failure patterns, projects it
+onto protocol state machines to show where progress stopped, and attaches
+deterministic debug playbooks with specification references. Every analysis
+is also recorded into a persistent **Regression Database**, so the platform
+tells you whether this failure has been seen before, what resembled it, and
+what the historical root cause was.
 
 ```
 veritriage analyze simulation.log coverage.txt test_metadata.json
@@ -26,8 +30,10 @@ Regression failure
   -> Normalize                (Evidence Graph: typed nodes + typed edges)
   -> Correlate evidence       (temporal, causal, cross-artifact links)
   -> Classify                 (rule engine over the graph, confidence-ranked)
-  -> Reason                   (evidence selection -> signals -> competing
-                               hypotheses -> traceable confidence -> steps)
+  -> Apply knowledge          (packs -> knowledge graph -> pattern match ->
+                               state projection -> playbooks -> references)
+  -> Reason                   (evidence selection -> signals incl. knowledge ->
+                               competing hypotheses -> traceable confidence)
   -> Remember                 (regression database: signature, similarity,
                                "have we seen this before?")
   -> Report                   (analysis.json + evidence_graph.json + report.html)
@@ -52,7 +58,10 @@ hypotheses with traceable confidence, and how deterministic rules and AI
 collaborate without the AI ever reading a raw file, and
 [docs/REGRESSION_INTELLIGENCE.md](docs/REGRESSION_INTELLIGENCE.md) for the
 regression database: deterministic failure signatures, similar-failure
-search, clustering, analytics, and the engineering dashboard.
+search, clustering, analytics, and the engineering dashboard, and
+[docs/KNOWLEDGE_ENGINE.md](docs/KNOWLEDGE_ENGINE.md) for the Verification
+Knowledge Engine: why structured, versioned verification knowledge beats
+prompt engineering, and how to add a protocol pack.
 
 ## Installation
 
@@ -84,6 +93,7 @@ veritriage analyze simulation.log --no-history   # opt out of recording
 
 # Introspection
 veritriage parsers
+veritriage knowledge      # loaded Knowledge Packs
 veritriage version
 ```
 

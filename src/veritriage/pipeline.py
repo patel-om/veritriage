@@ -15,10 +15,12 @@ from typing import NamedTuple, Sequence
 
 from veritriage.graph.builder import GraphBuilder
 from veritriage.graph.graph import EvidenceGraph
+from veritriage.knowledge import KnowledgeEngine, knowledge_reasoning_rules
 from veritriage.models import AnalysisReport, LogSummary, Severity
 from veritriage.parsers import find_parser, get_parser
 from veritriage.parsers.base import ParseResult
 from veritriage.reasoning import ReasoningEngine
+from veritriage.reasoning.signals import default_reasoning_rules
 from veritriage.rules import RuleEngine
 
 
@@ -64,7 +66,18 @@ def analyze(
 
     engine = engine or RuleEngine()
     primary, alternatives = engine.classify(graph)
-    reasoning = ReasoningEngine().reason(graph)
+
+    # Knowledge runs before reasoning and feeds it through the standard rule
+    # interface: matched patterns become ordinary evidence-cited signals. The
+    # reasoning engine itself has no knowledge dependency.
+    knowledge_engine = KnowledgeEngine()
+    knowledge = knowledge_engine.analyze(graph)
+    reasoning = ReasoningEngine(
+        rules=[
+            *default_reasoning_rules(),
+            *knowledge_reasoning_rules(knowledge_engine.knowledge),
+        ]
+    ).reason(graph)
 
     # Keep the report focused: warnings and above. INFO stays available to
     # parsers but would bloat analysis.json on chatty logs.
@@ -81,6 +94,7 @@ def analyze(
         failures=[f for r in results for f in r.failures],
         events=notable_events,
         reasoning=reasoning,
+        knowledge=None if knowledge.is_empty else knowledge,
     )
     return AnalysisOutcome(report=report, graph=graph)
 

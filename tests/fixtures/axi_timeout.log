@@ -1,0 +1,11 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test axi_read_stress_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/driver.sv(78) @ 7500000: uvm_test_top.env.drv [DRV] AXI read addr 0x40 issued, ARVALID held high
+UVM_WARNING /tb/driver.sv(82) @ 7600000: uvm_test_top.env.drv [DRV] address accepted by slave (ARREADY), response pending
+UVM_WARNING /tb/monitor.sv(55) @ 9500000: uvm_test_top.env.mon [MON] 4 outstanding AXI reads awaiting data
+UVM_ERROR /tb/watchdog.sv(31) @ 10000000: uvm_test_top.env.wdog [WDOG] Watchdog timeout hit while read response outstanding for addr 0x40
+UVM_FATAL /tb/watchdog.sv(35) @ 10000000: uvm_test_top.env.wdog [WDOG] Timeout, ending simulation
+--- UVM Report Summary ---
+UVM_ERROR :   1
+UVM_FATAL :   1

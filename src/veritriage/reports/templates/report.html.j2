@@ -144,6 +144,22 @@
   details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
   details[open] summary { margin-bottom: 8px; }
 
+  /* Knowledge: protocol sequence stepper */
+  .kseq { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 4px; }
+  .kstate {
+    display: flex; flex-direction: column; gap: 3px;
+    border: 1px solid var(--hairline); border-radius: 8px;
+    padding: 7px 12px; font-size: 12.5px; font-weight: 600; color: var(--ink);
+  }
+  .kstate .kdot { width: 9px; height: 9px; border-radius: 50%; background: var(--meter); }
+  .kstate.unreached { color: var(--muted); border-style: dashed; font-weight: 400; }
+  .kstate.unreached .kdot { background: var(--meter-track); }
+  .kstate.stall { border-color: var(--serious); }
+  .kstate.stall .kdot { background: var(--serious); }
+  .kstate .kev { font-weight: 400; font-size: 11px; color: var(--muted); }
+  .kstate .kev code { color: var(--ink-2); }
+  .karrow { color: var(--muted); align-self: center; }
+
   /* Evidence graph drawing */
   .graph-scroll { overflow-x: auto; margin-top: 14px; }
   svg.evgraph { display: block; }
@@ -342,6 +358,105 @@
     </div>
   </section>
   {% endif %}
+  {% endif %}
+
+  {% if report.knowledge %}
+  <section>
+    <h2>Verification Knowledge</h2>
+    {% if report.knowledge.patterns %}
+    <p class="lead">
+      The evidence matches {{ report.knowledge.patterns | length }} known verification
+      pattern{{ "s" if report.knowledge.patterns | length != 1 }} from the knowledge base
+      (packs: {% for pid, v in report.knowledge.pack_versions.items() %}<code>{{ pid }} v{{ v }}</code>{% if not loop.last %}, {% endif %}{% endfor %}).
+    </p>
+    {% endif %}
+    {% for pat in report.knowledge.patterns %}
+    <div class="card hyp-card">
+      <div class="verdict">
+        <span class="chip"><span class="dot {{ ownership_roles.get(pat.pattern_id, "muted") }}"></span>{{ pat.name }}</span>
+        <span class="rule-name">{{ pat.pack }} pack v{{ pat.pack_version }} · usually owned by {{ pat.ownership }}</span>
+      </div>
+      <div class="meter">
+        <div class="meter-head"><span>Pattern match</span><b>{{ "%.0f" | format(pat.score * 100) }}%</b></div>
+        <div class="track"><div class="fill" style="width: {{ pat.score * 100 }}%"></div></div>
+      </div>
+      <p class="verdict-summary">{{ pat.summary }}</p>
+      {% if pat.typical_causes %}
+      <p class="ev-refs" style="margin-top: 10px;"><b>Typical causes:</b></p>
+      <ul style="margin: 4px 0 0; color: var(--ink-2); font-size: 13.5px;">
+        {% for cause in pat.typical_causes %}<li>{{ cause }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+      {% if pat.suggested_signals %}
+      <p class="ev-refs"><b>Signals to inspect:</b>
+        {% for s in pat.suggested_signals %}<code>{{ s }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+      </p>
+      {% endif %}
+      <p class="ev-refs"><b>Matched evidence:</b>
+        {% for clause, ids in pat.matched_evidence.items() %}
+        {{ clause }} ({% for id in ids %}<code>{{ id }}</code>{% if not loop.last %}, {% endif %}{% endfor %}){% if not loop.last %}; {% endif %}
+        {% endfor %}
+      </p>
+      {% if pat.references %}
+      <p class="ev-refs"><b>References:</b>
+        {% for ref in pat.references %}{{ ref.source }}{% if ref.section %} §{{ ref.section }}{% endif %}{% if ref.note %} ({{ ref.note }}){% endif %}{% if not loop.last %}; {% endif %}{% endfor %}
+      </p>
+      {% endif %}
+      {% if pat.playbook %}
+      <details>
+        <summary>Debug playbook: {{ pat.playbook.name }} ({{ pat.playbook.steps | length }} deterministic steps)</summary>
+        <ol class="steps">
+          {% for step in pat.playbook.steps %}
+          <li>{{ step.action }}
+            {% if step.detail %}<span class="why">{{ step.detail }}</span>{% endif %}
+            {% if step.signals %}<span class="why">signals: {% for s in step.signals %}<code>{{ s }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}
+          </li>
+          {% endfor %}
+        </ol>
+      </details>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    {% if report.knowledge.state_projection %}
+    {% set sp = report.knowledge.state_projection %}
+    <div class="card hyp-card">
+      <p style="margin: 0 0 12px; color: var(--ink-2);">
+        <b style="color: var(--ink);">Expected sequence: {{ sp.name }}</b>
+        ({{ sp.pack }} pack). Evidence projected onto the protocol state machine
+        {% if sp.stopped_at %} shows progress stopped before <b style="color: var(--ink);">{{ sp.stopped_at }}</b>.{% else %} shows the full sequence completed.{% endif %}
+      </p>
+      <div class="kseq">
+        {% for s in sp.states %}
+        <div class="kstate {{ 'reached' if s.reached else 'unreached' }}{{ ' stall' if s.state == sp.stopped_at }}"
+             {% if s.description %}title="{{ s.description }}"{% endif %}>
+          <span class="kdot"></span>{{ s.state }}
+          {% if s.reached and s.evidence_ids %}<span class="kev">{% for id in s.evidence_ids[:2] %}<code>{{ id }}</code>{% endfor %}</span>{% endif %}
+        </div>
+        {% if not loop.last %}<div class="karrow">&#8594;</div>{% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if report.knowledge.concepts %}
+    <div class="card">
+      <p class="ev-refs" style="margin: 0 0 8px;"><b>Verification concepts in play</b></p>
+      {% for c in report.knowledge.concepts %}
+      <p style="margin: 6px 0 0; color: var(--ink-2); font-size: 13.5px;">
+        <b style="color: var(--ink);">{{ c.name }}</b> <span class="rule-name">({{ c.pack }} pack)</span> · {{ c.summary }}
+      </p>
+      {% endfor %}
+      {% if report.history and report.history.seen_before %}
+      <p class="ev-refs" style="margin-top: 12px;">
+        <b>Historical support:</b> the regression database holds
+        {{ report.history.times_seen }} prior occurrence{{ "s" if report.history.times_seen != 1 }}
+        of this exact failure signature.
+      </p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </section>
   {% endif %}
 
   {% if report.history %}

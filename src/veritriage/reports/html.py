@@ -41,6 +41,14 @@ _COLUMN_ORDER = (
 
 _MAX_DRAWN_NODES = 24
 
+#: Pattern-ownership label prefix -> status role for the report chip.
+_OWNERSHIP_ROLE = {
+    "design": "critical",
+    "testbench": "serious",
+    "build": "warning",
+    "infrastructure": "muted",
+}
+
 
 class HtmlReportGenerator:
     """Renders an :class:`AnalysisReport` into a single self-contained HTML file."""
@@ -61,9 +69,16 @@ class HtmlReportGenerator:
             graph: When provided, the working-set evidence graph is drawn as
                 an inline SVG; without it the section shows stats only.
         """
+        ownership_roles = {}
+        if report.knowledge is not None:
+            ownership_roles = {
+                p.pattern_id: _OWNERSHIP_ROLE.get(p.ownership.split(" ")[0], "muted")
+                for p in report.knowledge.patterns
+            }
         template = self._env.get_template("report.html.j2")
         return template.render(
             report=report,
+            ownership_roles=ownership_roles,
             status_role=_STATUS_ROLE.get(report.classification.category, "warning"),
             hypothesis_role=_HYPOTHESIS_ROLE,
             fatal_count=report.summary.count(Severity.FATAL),

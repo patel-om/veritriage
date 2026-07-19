@@ -10,6 +10,7 @@ from veritriage.models.events import Severity, SimulationEvent
 from veritriage.models.evidence import Evidence
 from veritriage.models.failure import AssertionFailure, Failure, FailureCategory
 from veritriage.models.history import HistoricalContext
+from veritriage.models.knowledge import KnowledgeContext
 from veritriage.models.reasoning import ReasoningResult
 
 
@@ -77,7 +78,7 @@ class AnalysisReport(BaseModel):
     Version 2 introduces multi-artifact input and the Evidence Graph.
     """
 
-    schema_version: str = "4"
+    schema_version: str = "5"
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     input_files: list[str] = Field(description="Paths of the analyzed artifacts, as given on the CLI.")
     parser_names: list[str] = Field(description="Parsers used, one per input artifact.")
@@ -95,6 +96,11 @@ class AnalysisReport(BaseModel):
     reasoning: ReasoningResult | None = Field(
         default=None,
         description="Reasoning-engine output: working set, signals, ranked hypotheses, recommendations.",
+    )
+    knowledge: KnowledgeContext | None = Field(
+        default=None,
+        description="Verification Knowledge Engine conclusions: matched patterns, concepts, "
+        "state projection, playbooks.",
     )
     history: HistoricalContext | None = Field(
         default=None,
