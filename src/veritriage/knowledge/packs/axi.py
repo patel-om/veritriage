@@ -61,6 +61,36 @@ def axi_pack() -> KnowledgePack:
                 ],
             ),
             Concept(
+                id="axi.write-transaction",
+                name="AXI write transaction",
+                summary=(
+                    "A write is an AW-channel address handshake plus W-channel data "
+                    "beats (WLAST on the final beat), acknowledged by a single "
+                    "B-channel response. Address and data channels are decoupled: "
+                    "data may arrive before the address, and the response must not "
+                    "be given until both have completed."
+                ),
+                markers=[r"\baxi\b.*write", r"\bawvalid\b", r"\bwvalid\b", r"\bbvalid\b", r"\bwlast\b", r"write (?:addr|burst|data|response)"],
+                references=[
+                    Reference(source=_SPEC, section="A3.3", note="Write transaction dependencies: BVALID requires AWVALID/AWREADY and WVALID/WREADY/WLAST."),
+                ],
+            ),
+            Concept(
+                id="axi.exclusive",
+                name="Exclusive access",
+                summary=(
+                    "An exclusive read/write pair implements atomic access: the "
+                    "exclusive write succeeds (EXOKAY) only if no other master wrote "
+                    "the location since the exclusive read. An OKAY response to an "
+                    "exclusive write means the exclusivity was lost or the monitor "
+                    "does not support the location."
+                ),
+                markers=[r"exclusive", r"\bEXOKAY\b", r"exokay"],
+                references=[
+                    Reference(source=_SPEC, section="A7.2", note="Exclusive access model and monitor requirements."),
+                ],
+            ),
+            Concept(
                 id="axi.outstanding",
                 name="Outstanding transactions",
                 summary=(
@@ -120,6 +150,37 @@ def axi_pack() -> KnowledgePack:
                         name="Complete",
                         description="Last beat accepted; transaction retires.",
                         markers=[r"transaction complete", r"retir", r"\bOKAY\b", r"\ball beats\b"],
+                    ),
+                ],
+            ),
+            StateMachine(
+                id="axi.write-lifecycle",
+                name="AXI write lifecycle",
+                states=[
+                    ProtocolState(
+                        name="Address issued",
+                        description="Master drives AWVALID with the write address.",
+                        markers=[r"\bawvalid\b", r"write addr .*issued", r"write issued"],
+                    ),
+                    ProtocolState(
+                        name="Data beats",
+                        description="W-channel beats transfer, ending with WLAST.",
+                        markers=[r"\bwvalid\b", r"\bwlast\b", r"write (?:data|beat)"],
+                    ),
+                    ProtocolState(
+                        name="Awaiting response",
+                        description="Both channels complete; master waits for B.",
+                        markers=[r"await(?:ing)? (?:write )?response", r"write outstanding", r"response pending"],
+                    ),
+                    ProtocolState(
+                        name="Response",
+                        description="BVALID returns the write status.",
+                        markers=[r"bvalid (?:assert|seen|high)", r"write response (?:received|returned)", r"\bBRESP\b"],
+                    ),
+                    ProtocolState(
+                        name="Complete",
+                        description="Response accepted; write retires.",
+                        markers=[r"write complete", r"write retir", r"\bOKAY\b", r"\bEXOKAY\b"],
                     ),
                 ],
             ),
@@ -198,6 +259,77 @@ def axi_pack() -> KnowledgePack:
                     Reference(source=_SPEC, section="A3.2.1", note="Once VALID is asserted it must remain asserted until the handshake occurs."),
                 ],
             ),
+            FailurePattern(
+                id="axi.write-response-missing",
+                name="Write response never returned",
+                summary=(
+                    "Address and data phases of a write completed but BVALID never "
+                    "arrived; the slave accepted the write and then went silent."
+                ),
+                required=[
+                    EvidenceClause(
+                        name="timeout observed",
+                        pattern=r"time[- ]?out|watchdog",
+                        must_fail=True,
+                    ),
+                    EvidenceClause(
+                        name="write awaiting response",
+                        pattern=r"write .*(?:outstanding|pending|await)|await(?:ing)? (?:write )?response|\bbvalid\b.*(?:missing|never)",
+                    ),
+                ],
+                optional=[
+                    EvidenceClause(name="AXI write context", pattern=r"\bawvalid\b|\bwlast\b|\baxi\b.*write"),
+                ],
+                forbidden=[
+                    EvidenceClause(
+                        name="no protocol assertion fired",
+                        pattern=r".",
+                        artifact_types=["assertion"],
+                        must_fail=True,
+                    ),
+                ],
+                typical_causes=[
+                    "Slave waits for WLAST it already consumed (beat counting bug)",
+                    "Write response queue full and never drained",
+                    "B-channel arbiter starvation under concurrent masters",
+                    "Interleaved write data associated with the wrong AWID",
+                ],
+                ownership="design",
+                suggested_signals=["AWVALID", "WVALID", "WLAST", "BVALID", "BREADY", "wr_resp_q_level"],
+                playbook_id="axi.write-response",
+                confidence_modifiers={"rtl_bug": 0.12, "testbench_issue": -0.03},
+                references=[
+                    Reference(source=_SPEC, section="A3.3.1", note="Write response dependency: BVALID requires completed address and data phases."),
+                ],
+            ),
+            FailurePattern(
+                id="axi.exclusive-fail",
+                name="Exclusive access never succeeds",
+                summary=(
+                    "Exclusive writes keep receiving OKAY instead of EXOKAY: the "
+                    "exclusivity is always lost or the monitor never grants it."
+                ),
+                required=[
+                    EvidenceClause(
+                        name="exclusive failure observed",
+                        pattern=r"exclusive .*(?:fail|okay instead|not granted|lost)|\bEXOKAY\b.*(?:expected|missing|never)",
+                        must_fail=True,
+                    ),
+                ],
+                typical_causes=[
+                    "Exclusive monitor not implemented for the address region",
+                    "Monitor granularity larger than the tested data size",
+                    "Another master (or the same master's ID reuse) clears the reservation",
+                    "Testbench issues the exclusive pair with mismatched ID/address/size",
+                ],
+                ownership="design",
+                suggested_signals=["ARLOCK", "AWLOCK", "BRESP", "exclusive monitor state"],
+                playbook_id="axi.exclusive-debug",
+                confidence_modifiers={"rtl_bug": 0.10, "testbench_issue": 0.05},
+                references=[
+                    Reference(source=_SPEC, section="A7.2.4", note="EXOKAY conditions and monitor reset events."),
+                ],
+            ),
         ],
         playbooks=[
             DebugPlaybook(
@@ -211,6 +343,27 @@ def axi_pack() -> KnowledgePack:
                     PlaybookStep(action="Check the response multiplexer select", detail="A mis-selected source returns no beats to the waiting master.", signals=["rresp_mux_sel"]),
                     PlaybookStep(action="Re-run with protocol assertions enabled", detail="A handshake assertion may localize the stall to one channel."),
                     PlaybookStep(action="Pull waveforms for the R channel", detail="Confirm whether RVALID ever pulsed anywhere in the fabric.", signals=["RVALID", "RREADY", "RLAST"]),
+                ],
+            ),
+            DebugPlaybook(
+                id="axi.write-response",
+                name="AXI write response missing",
+                steps=[
+                    PlaybookStep(action="Confirm both write phases completed", detail="AW handshake and the WLAST beat must both have occurred.", signals=["AWVALID", "AWREADY", "WVALID", "WREADY", "WLAST"]),
+                    PlaybookStep(action="Check the slave's beat counter against the burst length", detail="An off-by-one here leaves the slave waiting for a beat that never comes."),
+                    PlaybookStep(action="Inspect the write response queue occupancy", detail="Full-and-never-drained means the response was generated but stuck.", signals=["wr_resp_q_level"]),
+                    PlaybookStep(action="Check B-channel arbitration under concurrent masters", signals=["BVALID", "BREADY"]),
+                    PlaybookStep(action="Verify AWID/WID association for interleaved writes", detail="Data attributed to the wrong ID stalls the right one forever."),
+                ],
+            ),
+            DebugPlaybook(
+                id="axi.exclusive-debug",
+                name="Exclusive access debug",
+                steps=[
+                    PlaybookStep(action="Log the exclusive read/write pair parameters", detail="ID, address, size, and length must match exactly between the pair.", signals=["ARLOCK", "AWLOCK"]),
+                    PlaybookStep(action="Dump the exclusive monitor state between the pair", detail="Find what cleared the reservation.", signals=["exclusive monitor state"]),
+                    PlaybookStep(action="Check monitor address granularity", detail="A reservation tracked at larger granularity is cleared by neighbors."),
+                    PlaybookStep(action="Re-run with a single master", detail="If EXOKAY appears, interference clears the reservation; if not, the monitor itself is broken."),
                 ],
             ),
             DebugPlaybook(

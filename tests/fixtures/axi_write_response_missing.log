@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test axi_write_stress_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/driver.sv(66) @ 5000000: uvm_test_top.env.drv [DRV] AXI write addr 0x800 issued, AWVALID held high, WLAST sent
+UVM_WARNING /tb/driver.sv(70) @ 5200000: uvm_test_top.env.drv [DRV] write outstanding, awaiting write response
+UVM_ERROR /tb/watchdog.sv(19) @ 10000000: uvm_test_top.env.wdog [WDOG] Watchdog timeout hit while write outstanding for addr 0x800
+UVM_FATAL /tb/watchdog.sv(23) @ 10000000: uvm_test_top.env.wdog [WDOG] Timeout, ending simulation
+--- UVM Report Summary ---
+UVM_ERROR :   1
+UVM_FATAL :   1

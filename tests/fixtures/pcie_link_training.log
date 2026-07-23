@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test pcie_linkup_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/phy.sv(70) @ 100000: uvm_test_top.env.phy [LTSSM] LTSSM entered Polling.Active
+UVM_WARNING /tb/phy.sv(90) @ 500000: uvm_test_top.env.phy [LTSSM] LTSSM stuck in Configuration.LinkWidth, link training timeout approaching
+UVM_ERROR /tb/phy.sv(110) @ 2000000: uvm_test_top.env.phy [LTSSM] Link training timeout: LTSSM never reached L0
+UVM_FATAL /tb/phy.sv(115) @ 2000000: uvm_test_top.env.phy [LTSSM] Fatal link training failure, ending simulation
+--- UVM Report Summary ---
+UVM_ERROR :   1
+UVM_FATAL :   1

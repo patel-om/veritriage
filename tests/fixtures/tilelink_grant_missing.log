@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test tilelink_cache_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/master.sv(44) @ 6000000: uvm_test_top.env.mst [TL] Acquire sent on channel A for block 0x2000
+UVM_WARNING /tb/master.sv(50) @ 6500000: uvm_test_top.env.mst [TL] Acquire outstanding, no grant received on channel D yet
+UVM_ERROR /tb/watchdog.sv(20) @ 10000000: uvm_test_top.env.wdog [WDOG] Watchdog timeout hit: grant missing for outstanding acquire
+UVM_FATAL /tb/watchdog.sv(24) @ 10000000: uvm_test_top.env.wdog [WDOG] Timeout, ending simulation
+--- UVM Report Summary ---
+UVM_ERROR :   1
+UVM_FATAL :   1

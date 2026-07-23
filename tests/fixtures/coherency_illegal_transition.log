@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test coherency_stress_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/coh_chk.sv(40) @ 4000000: uvm_test_top.env.coh [COH] cache line 0x8000 coherence state Shared observed
+UVM_ERROR /tb/coh_chk.sv(48) @ 4200000: uvm_test_top.env.coh [COH] illegal coherence state transition for line 0x8000: two caches reached Modified simultaneously
+--- UVM Report Summary ---
+UVM_ERROR :   1

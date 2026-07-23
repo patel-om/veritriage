@@ -7,7 +7,10 @@ code, and its playbooks/matches are reproducible.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
+
+import pytest
 
 from veritriage.knowledge import (
     Concept,
@@ -23,10 +26,46 @@ from veritriage.knowledge import (
     register_pack,
     unregister_pack,
 )
+from veritriage.models import HypothesisCategory
 from veritriage.pipeline import analyze
 from veritriage.reasoning import ReasoningEngine
 
 SRC = Path(__file__).parent.parent / "src" / "veritriage"
+
+#: Every built-in pack expected to be registered. A regression here means a
+#: pack module exists but was never wired into knowledge/packs/__init__.py.
+EXPECTED_PACK_IDS = {
+    "axi",
+    "apb",
+    "ahb",
+    "chi",
+    "tilelink",
+    "pcie",
+    "uvm",
+    "sva",
+    "reset-clocking",
+    "cdc",
+    "coherency",
+    "riscv-privilege",
+    "coverage",
+}
+
+#: fixture -> pattern id it must match. One entry per protocol/domain pack
+#: added beyond the original Milestone 5 set, so every pack is proven to
+#: actually fire on realistic evidence, not just load without error.
+_PATTERN_FIXTURES = {
+    "ahb_hready_stall.log": "ahb.hready-stall",
+    "apb_pready_stuck.log": "apb.pready-stuck",
+    "pcie_link_training.log": "pcie.link-training-stuck",
+    "chi_credit_starvation.log": "chi.credit-starvation",
+    "tilelink_grant_missing.log": "tilelink.grant-missing",
+    "cdc_unsynchronized.log": "cdc.unsynchronized-crossing",
+    "coherency_illegal_transition.log": "coherency.illegal-transition",
+    "riscv_trap_wrong_mode.log": "riscv.trap-wrong-mode",
+    "axi_write_response_missing.log": "axi.write-response-missing",
+    "axi_exclusive_fail.log": "axi.exclusive-fail",
+    "sva_assertion_before_timeout.log": "sva.assertion-before-timeout",
+}
 
 
 # --- Schema and packs ------------------------------------------------------
@@ -35,7 +74,7 @@ SRC = Path(__file__).parent.parent / "src" / "veritriage"
 def test_builtin_packs_load_and_are_versioned():
     packs = load_packs()
     ids = {p.id for p in packs}
-    assert {"axi", "uvm", "reset-clocking", "coverage"} <= ids
+    assert EXPECTED_PACK_IDS <= ids
     for pack in packs:
         assert pack.version
         assert pack.domain
@@ -44,6 +83,102 @@ def test_builtin_packs_load_and_are_versioned():
         for pattern in pack.patterns:
             if pattern.playbook_id:
                 assert pattern.playbook_id in playbook_ids
+
+
+def test_knowledge_base_has_real_breadth():
+    # Milestone 5 was flagged as too shallow (AXI-only, thin patterns). Pin a
+    # floor so the breadth cannot silently regress: many protocol/domain
+    # packs, each with multiple patterns/playbooks, not one pack doing all
+    # the work.
+    packs = load_packs()
+    assert len(packs) >= 12
+    total_patterns = sum(len(p.patterns) for p in packs)
+    total_playbooks = sum(len(p.playbooks) for p in packs)
+    total_concepts = sum(len(p.concepts) for p in packs)
+    assert total_patterns >= 25
+    assert total_playbooks >= 25
+    assert total_concepts >= 25
+    # Breadth, not one pack padding the count: every pack pulls real weight.
+    for pack in packs:
+        assert pack.patterns, f"{pack.id} has no failure patterns"
+        assert pack.playbooks, f"{pack.id} has no debug playbooks"
+
+
+@pytest.mark.parametrize("pack", load_packs(), ids=lambda p: p.id)
+def test_pack_schema_is_well_formed(pack: KnowledgePack):
+    """Every pack's knowledge is structurally sound, independent of matching.
+
+    Regexes compile, confidence modifiers name real hypothesis categories,
+    playbook references resolve inside the same pack, every pattern cites at
+    least one specification/guideline reference, and every playbook step has
+    a non-empty action. This is what "detailed knowledge" means in code: not
+    prose, but data a machine can validate.
+    """
+    playbook_ids = {b.id for b in pack.playbooks}
+    seen_pattern_ids: set[str] = set()
+    seen_concept_ids: set[str] = set()
+
+    for concept in pack.concepts:
+        assert concept.id not in seen_concept_ids, f"duplicate concept id {concept.id}"
+        seen_concept_ids.add(concept.id)
+        assert concept.summary
+        for marker in concept.markers:
+            re.compile(marker)  # raises re.error on malformed patterns
+
+    for pattern in pack.patterns:
+        assert pattern.id not in seen_pattern_ids, f"duplicate pattern id {pattern.id}"
+        seen_pattern_ids.add(pattern.id)
+        assert pattern.summary
+        assert pattern.typical_causes, f"{pattern.id} lists no typical causes"
+        assert pattern.ownership in ("design", "testbench", "infrastructure", "build")
+        assert pattern.references, f"{pattern.id} cites no reference"
+        for clause in (*pattern.required, *pattern.optional_, *pattern.forbidden):
+            re.compile(clause.pattern)
+        for category in pattern.confidence_modifiers:
+            HypothesisCategory(category)  # raises ValueError if not a real category
+        if pattern.playbook_id:
+            assert pattern.playbook_id in playbook_ids, (
+                f"{pattern.id} references unknown playbook {pattern.playbook_id}"
+            )
+
+    for playbook in pack.playbooks:
+        assert playbook.steps
+        for step in playbook.steps:
+            assert step.action.strip()
+
+
+def test_pack_and_playbook_ids_globally_unique():
+    # Packs are independently authored; nothing enforces cross-pack
+    # uniqueness except this test, and a collision would silently shadow
+    # one pack's item behind another's in the Knowledge Graph.
+    packs = load_packs()
+    pattern_ids = [p.id for pack in packs for p in pack.patterns]
+    playbook_ids = [b.id for pack in packs for b in pack.playbooks]
+    concept_ids = [c.id for pack in packs for c in pack.concepts]
+    assert len(pattern_ids) == len(set(pattern_ids))
+    assert len(playbook_ids) == len(set(playbook_ids))
+    assert len(concept_ids) == len(set(concept_ids))
+
+
+@pytest.mark.parametrize("fixture_name,pattern_id", sorted(_PATTERN_FIXTURES.items()))
+def test_pack_pattern_matches_realistic_evidence(fixture_log, fixture_name, pattern_id):
+    """Every non-AXI-core pack fires on a realistic fixture, not just in theory."""
+    outcome = analyze(fixture_log(fixture_name))
+    knowledge = outcome.report.knowledge
+    assert knowledge is not None, f"{fixture_name} produced no knowledge context"
+    matched = {p.pattern_id: p for p in knowledge.patterns}
+    assert pattern_id in matched, (
+        f"{fixture_name} expected to match {pattern_id}, got {sorted(matched)}"
+    )
+    match = matched[pattern_id]
+    assert match.playbook is not None
+    assert match.playbook.steps
+    assert match.references
+    for ids in match.matched_evidence.values():
+        assert all(i in outcome.graph.nodes for i in ids)
+    # The pattern's signal actually reached the reasoning stage.
+    signal_names = {s.name for s in outcome.report.reasoning.signals}
+    assert f"knowledge:{pattern_id}" in signal_names
 
 
 def test_knowledge_serializes_round_trip():
@@ -188,6 +323,21 @@ def test_playbooks_are_reproducible(fixture_log):
 def test_clean_run_has_no_knowledge_section(fixture_log):
     outcome = analyze(fixture_log("uvm_pass.log"))
     assert outcome.report.knowledge is None
+
+
+def test_coverage_hole_in_passing_run_is_informational_not_a_ranking_signal(fixture_log):
+    # A passing run with an uncovered scope is knowledge worth surfacing
+    # (the pass proves less than it looks like) but must not masquerade as
+    # a failure-ranking signal: there is no failure to rank.
+    outcome = analyze([fixture_log("uvm_pass.log"), fixture_log("coverage.txt")])
+    knowledge = outcome.report.knowledge
+    assert knowledge is not None
+    matched = {p.pattern_id for p in knowledge.patterns}
+    assert "coverage.hole-in-passing-run" in matched
+    assert "coverage.hole-near-failure" not in matched
+    assert outcome.report.reasoning is None or not any(
+        s.name == "knowledge:coverage.hole-in-passing-run" for s in outcome.report.reasoning.signals
+    )
 
 
 # --- Knowledge feeds reasoning as evidence ---------------------------------

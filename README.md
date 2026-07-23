@@ -5,13 +5,17 @@ raw verification artifacts (simulation logs, compile logs, coverage summaries,
 test metadata) into a normalized **Evidence Graph**, a deterministic failure
 classification with confidence and evidence, an engineering-grade HTML report,
 and suggested next debugging steps - in one command. A **Verification
-Knowledge Engine** (pluggable Knowledge Packs for AXI, UVM, reset/clocking,
-coverage) matches the evidence against known failure patterns, projects it
-onto protocol state machines to show where progress stopped, and attaches
-deterministic debug playbooks with specification references. Every analysis
-is also recorded into a persistent **Regression Database**, so the platform
-tells you whether this failure has been seen before, what resembled it, and
-what the historical root cause was.
+Knowledge Engine** ships 13 pluggable Knowledge Packs spanning AMBA AXI,
+APB, AHB, CHI, TileLink, PCI Express, UVM methodology, SystemVerilog
+Assertions, reset sequencing, clock domain crossing, cache coherency, and
+RISC-V privilege (29 deterministic failure patterns, 29 debug playbooks, 9
+protocol state machines total) that match the evidence against known
+failure patterns, project it onto protocol state machines to show where
+progress stopped, and attach deterministic debug playbooks with real
+specification references. Every analysis is also recorded into a
+persistent **Regression Database**, so the platform tells you whether this
+failure has been seen before, what resembled it, and what the historical
+root cause was.
 
 ```
 veritriage analyze simulation.log coverage.txt test_metadata.json

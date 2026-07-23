@@ -82,8 +82,10 @@ design and diagrams: [REASONING_ENGINE.md](REASONING_ENGINE.md).
 
 Between classification and reasoning, the Knowledge Engine
 (`veritriage/knowledge/`) matches structured domain expertise against the
-Evidence Graph: versioned Knowledge Packs (AXI, UVM, reset/clocking,
-coverage) normalize into a frozen, queryable Verification Knowledge Graph;
+Evidence Graph: 13 versioned Knowledge Packs (AXI, APB, AHB, CHI, TileLink,
+PCIe, UVM, SVA, reset/clocking, CDC, cache coherency, RISC-V privilege,
+coverage; 29 failure patterns, 29 playbooks, 9 protocol state machines in
+total) normalize into a frozen, queryable Verification Knowledge Graph;
 a deterministic clause matcher finds known failure patterns; evidence is
 projected onto protocol state machines to show where progress stopped; and
 matched patterns carry typical causes, ownership, suggested signals,
@@ -141,7 +143,7 @@ reasoning engine; it just sees more nodes.
 | Assertion-log / richer coverage parsers | new `Parser` subclasses emitting fragments |
 | Waveform metadata, FSDB/VCD indexing | parser for the reserved `waveform_metadata` type + a correlation pass |
 | Spec retrieval, git correlation | new node types + correlation passes |
-| New protocol/domain expertise (TileLink, CHI, PCIe, RISC-V privilege, CDC, coherency, ...) | a Knowledge Pack module with `@register_pack` |
+| New protocol/domain expertise (ACE, AXI-Stream, power management, security, formal, company-internal protocols, ...) | a Knowledge Pack module with `@register_pack` |
 | Multi-agent / deeper AI reasoning | consumers of `to_reasoning_view()`, behind the same boundary |
 | Jira / CI / emulation / formal integrations | adapters around the RegressionRecord vocabulary |
 | Learned similarity embeddings | an `EmbeddingProvider` implementation in `similarity/` |

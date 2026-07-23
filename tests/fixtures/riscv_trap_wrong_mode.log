@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test riscv_trap_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/core_chk.sv(70) @ 1500000: uvm_test_top.env.core [CSR] exception detected, cause=illegal_instruction, medeleg checked
+UVM_ERROR /tb/core_chk.sv(80) @ 1600000: uvm_test_top.env.core [CSR] trap delegated to wrong mode: handler entered unexpected mode for cause illegal_instruction
+--- UVM Report Summary ---
+UVM_ERROR :   1

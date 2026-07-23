@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test axi_exclusive_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/driver.sv(90) @ 2000000: uvm_test_top.env.drv [DRV] exclusive read issued for addr 0x100
+UVM_ERROR /tb/scoreboard.sv(120) @ 2200000: uvm_test_top.env.scb [SCBD] exclusive write fail: got OKAY instead of EXOKAY for addr 0x100
+--- UVM Report Summary ---
+UVM_ERROR :   1

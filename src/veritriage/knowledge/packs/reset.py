@@ -99,6 +99,7 @@ def reset_pack() -> KnowledgePack:
                 suggested_signals=["first X-valued net (trace backward)"],
                 playbook_id="reset.x-trace",
                 confidence_modifiers={"rtl_bug": 0.10},
+                references=[Reference(source=_CDC_REF, note="Uninitialized state and reset coverage.")],
             ),
             FailurePattern(
                 id="clock.oscillation-iteration-limit",
@@ -124,6 +125,7 @@ def reset_pack() -> KnowledgePack:
                 suggested_signals=["nets in the reported instance (loop trace)"],
                 playbook_id="clock.loop-trace",
                 confidence_modifiers={"rtl_bug": 0.12, "infrastructure_issue": -0.05},
+                references=[Reference(source=_CDC_REF, note="Combinational loop and delta-cycle hazards.")],
             ),
         ],
         playbooks=[

@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test ahb_bridge_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/master.sv(60) @ 4000000: uvm_test_top.env.mst [AHB] AHB transfer address phase issued, HTRANS NONSEQ
+UVM_WARNING /tb/slave.sv(88) @ 4100000: uvm_test_top.env.slv [AHB] AHB data phase pending, wait state, HREADY low
+UVM_ERROR /tb/watchdog.sv(20) @ 10000000: uvm_test_top.env.wdog [WDOG] Watchdog timeout hit: AHB bus stuck, HREADY held low by slave 2
+UVM_FATAL /tb/watchdog.sv(24) @ 10000000: uvm_test_top.env.wdog [WDOG] Timeout, ending simulation
+--- UVM Report Summary ---
+UVM_ERROR :   1
+UVM_FATAL :   1

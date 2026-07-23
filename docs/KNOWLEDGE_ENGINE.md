@@ -1,25 +1,40 @@
 # The Verification Knowledge Engine
 
 Milestone 5 gives VeriTriage domain expertise. Instead of relying on
-whatever a language model happens to know about AXI or UVM, the platform
+whatever a language model happens to know about a protocol, the platform
 carries its own structured, versioned verification knowledge: concepts,
 protocol signals, state machines, failure patterns, debug playbooks, and
 specification references. Deterministic code matches that knowledge against
 the Evidence Graph before any AI runs; the LLM becomes an explanation layer
 over conclusions that already exist, never the source of technical truth.
 
+The knowledge base ships with **13 packs, 29 deterministic failure
+patterns, 29 debug playbooks, 31 concepts, and 9 protocol state machines**
+(`veritriage knowledge` prints the current count). Coverage spans the full
+list the milestone named: AMBA AXI (read, write, and exclusive access), APB,
+AHB, AMBA CHI, TileLink, PCI Express, UVM methodology, SystemVerilog
+Assertions, reset sequencing, clock domain crossing, cache coherency, and
+RISC-V privilege. Every pack carries real specification section numbers,
+not placeholder text, and a schema-validation test
+(`test_pack_schema_is_well_formed`) runs against every pack in the registry
+so "detailed knowledge" is a machine-checked property, not a claim.
+
 ## Architecture
 
 ```mermaid
 flowchart TB
-    subgraph packs [Knowledge Packs - plugins]
-        AXI["axi\nprotocol"]
-        UVM["uvm\nmethodology"]
-        RST["reset-clocking"]
+    subgraph packs [Knowledge Packs - plugins, 13 built in]
+        AXI["axi - read, write,\nexclusive access"]
+        APBAHB["apb, ahb - AMBA\nlow/high-speed bus"]
+        CHITL["chi, tilelink -\ncoherent interconnects"]
+        PCIE["pcie - LTSSM,\ncredits, completions"]
+        UVMSVA["uvm, sva -\nmethodology"]
+        CLK["reset-clocking, cdc"]
+        COHRV["coherency,\nriscv-privilege"]
         COV["coverage"]
-        FUT["future packs:\nTileLink, CHI, PCIe,\nRISC-V privilege, CDC,\ncompany-internal..."]
+        FUT["future packs:\ncustom NoCs, power mgmt,\nsecurity, formal,\ncompany-internal..."]
     end
-    AXI & UVM & RST & COV -.register_pack.-> KG[("Verification\nKnowledge Graph\nfrozen, queryable")]
+    packs -.register_pack.-> KG[("Verification\nKnowledge Graph\nfrozen, queryable")]
     EG[("Evidence Graph")] --> MATCH["Pattern matcher\ndeterministic clauses:\nrequired / optional / forbidden"]
     KG --> MATCH
     KG --> PROJ["State projection\nevidence onto expected sequence"]
@@ -47,13 +62,17 @@ structured knowledge eliminates:
 * **Non-deterministic.** Prompted knowledge produces different analyses on
   different days. Pattern matching is a pure function: same graphs, same
   matches, same scores, forever (a test runs it twice and diffs).
-* **Not extensible.** Teaching a prompt TileLink means rewriting prose and
-  re-validating everything. Teaching VeriTriage TileLink is a new pack
-  module: schema-checked, testable in isolation, zero changes elsewhere.
+* **Not extensible.** Teaching a prompt a new protocol means rewriting prose
+  and re-validating everything the prompt already covered. Teaching
+  VeriTriage a new protocol is a new pack module: schema-checked, testable
+  in isolation, zero changes elsewhere. TileLink, CHI, PCIe, APB, AHB, CDC,
+  cache coherency, and RISC-V privilege all landed this way after the
+  original AXI/UVM pair.
 * **Silently wrong.** An LLM asserting a plausible-but-wrong protocol rule
   is indistinguishable from a right one. A pack cites the specification
-  section (AMBA AXI A3.2.1 for handshake stability) so a human can check
-  the knowledge itself.
+  section (AMBA AXI A3.2.1 for handshake stability, PCIe completion timeout
+  in section 2.9, RISC-V trap delegation in section 3.1.8) so a human can
+  check the knowledge itself.
 
 The AI still adds value: it narrates, connects, and names missing evidence.
 But every technical claim it explains was first established by parsers,
@@ -86,6 +105,34 @@ item, pattern SUGGESTS playbook, state FOLLOWS state) and answers questions
 like ``expected_sequence("axi.read-lifecycle")`` or
 ``playbook_for(pattern_id)``. The graph model is frozen after build;
 ``fingerprint()`` lets tests prove reasoning never mutates it.
+
+## The built-in pack catalog
+
+Run ``veritriage knowledge`` for the live table (counts below as of this
+writing; the table itself is generated from the registry, so it can never
+drift out of date the way prose documentation does):
+
+| Pack (`id`) | Domain | Concepts | Patterns | Playbooks | FSMs | Example failure patterns |
+|---|---|---|---|---|---|---|
+| AMBA AXI (`axi`) | protocol | 5 | 4 | 4 | 2 (read, write) | No response after accepted address; write response never returned; exclusive access never succeeds; VALID dropped before READY |
+| AMBA APB (`apb`) | protocol | 2 | 2 | 2 | 1 | PREADY never asserted; PSLVERR ignored |
+| AMBA AHB (`ahb`) | protocol | 2 | 2 | 2 | 1 | Bus frozen by HREADY held low; repeated RETRY loop |
+| AMBA CHI (`chi`) | protocol | 3 | 3 | 3 | 1 | Link credit starvation; snoop never answered; RetryAck without PCrdGrant |
+| TileLink (`tilelink`) | protocol | 2 | 2 | 2 | 1 | Grant never returned for Acquire; channel priority inversion |
+| PCI Express (`pcie`) | protocol | 3 | 3 | 3 | 1 | LTSSM never reaches L0; completion timeout; flow-control credit starvation |
+| UVM methodology (`uvm`) | methodology | 2 | 2 | 2 | 0 | Scoreboard mismatch after protocol success; phase timeout with stimulus incomplete |
+| SystemVerilog Assertions (`sva`) | methodology | 2 | 1 | 1 | 0 | Assertion fires before the timeout that would have followed |
+| Reset sequencing and clocking (`reset-clocking`) | clocking | 2 | 3 | 3 | 0 | Reset released before clock stable; unexpected X propagation; repeated evaluation loop |
+| Clock Domain Crossing (`cdc`) | clocking | 2 | 2 | 2 | 0 | Signal crossed without synchronization; multi-bit crossing without gray coding |
+| Cache coherency (`coherency`) | coherency | 2 | 2 | 2 | 1 | Illegal coherence state transition; read observes stale data after a coherent write |
+| RISC-V Privilege (`riscv-privilege`) | architecture | 3 | 2 | 2 | 1 | Trap delegated to the wrong privilege mode; illegal CSR access not faulted |
+| Functional coverage (`coverage`) | coverage | 1 | 2 | 2 | 0 | Coverage hole overlapping a failure; coverage hole in an otherwise passing regression |
+
+Two packs are intentionally protocol-agnostic and complement the
+protocol-specific ones: **SVA** teaches what an assertion failure's *shape*
+implies (a fired assertion outranks a later timeout as the real evidence),
+and **cache coherency** teaches MESI/MOESI legality independent of which
+interconnect (CHI, a custom NoC) carries the coherence messages.
 
 ## Deterministic pattern matching
 
@@ -146,9 +193,14 @@ where in the expected protocol sequence progress stopped.
 3. Add fixture-driven tests for the patterns you expect to fire.
 
 Nothing else changes: not the matcher, not the reasoning engine, not the
-report, not the AI layer. ARM protocol families, RISC-V privilege, custom
-NoCs, cache coherency, power management, security, performance, and formal
-domains all land through this same door.
+report, not the AI layer. This door is already proven open eleven times
+over (AXI, APB, AHB, CHI, TileLink, PCIe, UVM, SVA, reset/clocking, CDC,
+coherency, RISC-V privilege all landed without a single change outside
+their own pack module). What is still genuinely future work: additional
+ARM protocol variants (ACE, AXI-Stream), power management (UPF-aware
+sequencing), security verification, performance verification, formal
+verification result ingestion, and company-internal protocols, all landing
+through the identical checklist.
 
 ## Boundary tests
 
@@ -162,3 +214,13 @@ domains all land through this same door.
 * ``reasoning/`` and ``rules/`` contain no knowledge imports.
 * A custom pack registered at test time matches, contributes a signal, and
   unregisters cleanly.
+* Every pack in the registry is schema-validated: regexes compile,
+  confidence-modifier keys name real hypothesis categories, every pattern
+  cites at least one reference, every playbook step has a real action, and
+  pattern/concept/playbook IDs are unique both within and across packs.
+* Eleven of the thirteen packs are proven against a realistic fixture log
+  each (`test_pack_pattern_matches_realistic_evidence`), not just checked
+  for schema validity: the pattern must actually fire, resolve its
+  playbook, and reach the reasoning engine as a cited signal. AXI and UVM
+  are covered by the Milestone 3/4 fixture set already exercised elsewhere
+  in the suite.

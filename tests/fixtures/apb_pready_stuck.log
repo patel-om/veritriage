@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test apb_register_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/master.sv(50) @ 3000000: uvm_test_top.env.mst [APB] APB setup phase started, PSEL asserted
+UVM_WARNING /tb/master.sv(55) @ 3100000: uvm_test_top.env.mst [APB] APB access phase pending, wait state, PREADY low
+UVM_ERROR /tb/watchdog.sv(18) @ 8000000: uvm_test_top.env.wdog [WDOG] Watchdog timeout hit: APB peripheral stuck, PREADY never asserted
+UVM_FATAL /tb/watchdog.sv(22) @ 8000000: uvm_test_top.env.wdog [WDOG] Timeout, ending simulation
+--- UVM Report Summary ---
+UVM_ERROR :   1
+UVM_FATAL :   1

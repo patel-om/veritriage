@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test cdc_crossing_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/cdc_chk.sv(30) @ 2000000: uvm_test_top.env.cdc [CDC] Signal req_valid observed crossing clock domains
+UVM_ERROR /tb/cdc_chk.sv(35) @ 2100000: uvm_test_top.env.cdc [CDC] CDC violation: unsynchronized crossing detected, missing synchronizer on req_valid
+--- UVM Report Summary ---
+UVM_ERROR :   1

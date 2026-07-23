@@ -1,0 +1,9 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test chi_stress_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/rn.sv(66) @ 5000000: uvm_test_top.env.rn [CHI] REQ channel L-credit count dropping steadily
+UVM_ERROR /tb/rn.sv(80) @ 9000000: uvm_test_top.env.rn [CHI] REQ channel credit exhaustion: no credit available, DAT channel appears idle
+UVM_FATAL /tb/watchdog.sv(15) @ 10000000: uvm_test_top.env.wdog [WDOG] Watchdog timeout hit, ending simulation
+--- UVM Report Summary ---
+UVM_ERROR :   1
+UVM_FATAL :   1
