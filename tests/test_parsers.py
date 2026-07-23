@@ -84,7 +84,7 @@ class TestRegistry:
 
     def test_get_parser_unknown_name_raises(self):
         with pytest.raises(KeyError, match="Unknown parser"):
-            get_parser("waveform")
+            get_parser("no_such_parser")
 
     def test_new_parser_plugs_in_without_touching_existing_code(self, tmp_path: Path):
         @register

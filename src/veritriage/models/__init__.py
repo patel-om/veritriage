@@ -39,6 +39,12 @@ from veritriage.models.report import (
     LogSummary,
     Recommendation,
 )
+from veritriage.models.waveform import (
+    WaveformCapabilityView,
+    WaveformContext,
+    WaveformObservationView,
+    WaveformUnavailableView,
+)
 
 __all__ = [
     "AIReview",
@@ -71,5 +77,9 @@ __all__ = [
     "SimulationEvent",
     "StateProgress",
     "StateProjection",
+    "WaveformCapabilityView",
+    "WaveformContext",
+    "WaveformObservationView",
+    "WaveformUnavailableView",
     "WorkingSet",
 ]

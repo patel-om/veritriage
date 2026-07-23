@@ -1,15 +1,15 @@
-# VeriTriage — Project Context
+# VeriTriage - Project Context
 
 This file is a continuity document: what VeriTriage is, how it got built,
 where every piece lives, and what is deliberately left for later. It exists
 so work can resume in a new session (or by a new contributor) without
-re-deriving decisions already made. It is not user-facing documentation —
-see `README.md` and `docs/` for that — this is the "how we got here and
+re-deriving decisions already made. It is not user-facing documentation -
+see `README.md` and `docs/` for that - this is the "how we got here and
 what's next" record.
 
 Repo: https://github.com/patel-om/veritriage (public, Apache-2.0)
 Local path: `/Users/ompatel/Documents/veritriage`
-Current version: **0.5.1**
+Current version: **0.6.0**
 Portfolio integration: card + sample artifacts in
 `/Users/ompatel/Documents/Om Portfolio` (`index.html`,
 `veritriage-sample-report.html`, `veritriage-sample-dashboard.html`)
@@ -20,8 +20,8 @@ Portfolio integration: card + sample artifacts in
 
 VeriTriage is an AI-assisted **Verification Intelligence Platform** for
 semiconductor DV (design verification) engineers. It turns raw verification
-artifacts — simulation logs, compile logs, coverage summaries, test
-metadata — into:
+artifacts - simulation logs, compile logs, coverage summaries, test
+metadata - into:
 
 1. A normalized **Evidence Graph** (typed nodes + typed edges, deterministic
    content-hashed IDs) that is the single source of truth for everything
@@ -35,14 +35,14 @@ metadata — into:
    TileLink, PCIe, UVM, SVA, reset/clocking, CDC, cache coherency, RISC-V
    privilege, coverage) that match deterministic failure patterns against
    evidence, project it onto protocol state machines, and attach fixed
-   debug playbooks with real specification references — all before any AI
+   debug playbooks with real specification references - all before any AI
    runs.
 5. A persistent **Regression Database** (SQLite) giving the platform
    historical memory: deterministic failure signatures, similarity search,
    "have we seen this before?", failure clustering, and team-level
    analytics via an engineering dashboard.
 6. An **optional AI review** that reasons only over the bounded, normalized
-   output of stages 1–5 (never raw files) and only explains/annotates —
+   output of stages 1-5 (never raw files) and only explains/annotates -
    it cannot alter the graph, classification, ranking, or knowledge
    conclusions.
 
@@ -65,11 +65,11 @@ always new commits. Never force-push.
 
 ## 2. Milestone history
 
-The project was built "brick by brick" — each milestone is a complete,
+The project was built "brick by brick" - each milestone is a complete,
 tested, documented, shippable increment. Do not skip ahead of the current
 milestone without the user asking.
 
-### Milestone 1 (v0.1.0) — `f8f5698` — originally named TraceIQ
+### Milestone 1 (v0.1.0) - `f8f5698` - originally named TraceIQ
 Deterministic log parsing (UVM/Questa/VCS/Xcelium + generic fallback),
 structured Pydantic models, a rule-based classifier (compile/assertion/
 timeout/testbench/fatal/unknown/no-failure with fixed confidences), an
@@ -77,7 +77,7 @@ EDA-dashboard-style self-contained HTML report, optional AI summary, Typer
 CLI (`analyze` command), pluggable parser registry. Explicitly excluded:
 waveform/RTL parsing, multi-agent, RAG, vector DBs, cloud.
 
-### Milestone 2 (v0.2.0) — `1985e5f`
+### Milestone 2 (v0.2.0) - `1985e5f`
 Introduced the **Evidence Graph** as the central architecture and single
 source of truth. `EvidenceNode`/`EvidenceEdge` with deterministic
 content-hash IDs (`make_node_id`), typed `ArtifactType` (simulation_log,
@@ -89,7 +89,7 @@ Established the rule: **the AI layer must never read raw files, only the
 graph's `to_reasoning_view()` projection.** Rules rewritten to be
 graph-native.
 
-### Milestone 3 (v0.3.0) — `47b1f57`
+### Milestone 3 (v0.3.0) - `47b1f57`
 The **Verification Reasoning Engine**: a 7-stage pipeline (Evidence Graph
 → Evidence Selection → Rule Evaluation → Hypothesis Generation →
 Hypothesis Ranking → Recommendation Generation → Final Report), every
@@ -102,10 +102,10 @@ must abstain without evidence; `rank_hypotheses` computes
 full `ConfidenceTrace` recorded per hypothesis; `RecommendationEngine`
 produces categorized next steps. Optional `AIReasoner` runs strictly after,
 receiving only `build_ai_payload()` (selected evidence + signals +
-hypotheses + recommendations), never raw files — pinned by
+hypotheses + recommendations), never raw files - pinned by
 `tests/test_ai_boundary.py`. `docs/REASONING_ENGINE.md` written.
 
-### Milestone 4 (v0.4.0) — `675c8d0`
+### Milestone 4 (v0.4.0) - `675c8d0`
 **Regression Intelligence**: turns every analysis into historical memory.
 New packages, all downstream of reasoning and never imported by it
 (architecture test enforces this): `signatures/` (deterministic
@@ -114,12 +114,12 @@ New packages, all downstream of reasoning and never imported by it
 with indexed query columns), `similarity/` (deterministic sparse feature
 embeddings + cosine ranking behind an `EmbeddingProvider` seam; signature
 matches always score 1.0), `history/` (`HistoryEngine` records runs,
-answers "seen before?", and *additively* augments the report — one extra
-precedent recommendation, confidence discounted 0.85x from similarity —
+answers "seen before?", and *additively* augments the report - one extra
+precedent recommendation, confidence discounted 0.85x from similarity -
 never rewriting what reasoning produced), `analytics/` (hotspots, failure
 mix, signal frequency, confidence histogram, daily trend, deterministic
 signature+embedding clustering via union-find), `feedback/` (interfaces
-and storage only — `FeedbackRecord`, no learning implemented, designed so
+and storage only - `FeedbackRecord`, no learning implemented, designed so
 confirmed root causes immediately improve similarity results and so future
 work can reweight recommendations from labeled data), `dashboard/`
 (self-contained `dashboard.html`, no JS). CLI gained `--history/--db` on
@@ -127,7 +127,7 @@ work can reweight recommendations from labeled data), `dashboard/`
 commands. Report schema bumped to v4 (`history` field). `docs/
 REGRESSION_INTELLIGENCE.md` written.
 
-### Milestone 5 (v0.5.0) — `8df1652` — architecture, initially thin content
+### Milestone 5 (v0.5.0) - `8df1652` - architecture, initially thin content
 The **Verification Knowledge Engine**: structured, versioned, LLM-independent
 domain knowledge as a first-class component. `knowledge/model.py` defines
 the normalized schema (`Concept`, `ProtocolSignal`, `StateMachine`,
@@ -140,23 +140,23 @@ edges; `fingerprint()` for immutability proofs). `knowledge/matcher.py` is
 pure deterministic clause matching (required/optional/forbidden clauses
 against evidence node descriptions) plus state-machine projection ("where
 did progress stop?"). `knowledge/inference.py` bridges knowledge into
-reasoning: every `FailurePattern` becomes a `KnowledgePatternRule` — a
-standard `ReasoningRule` — so matched knowledge contributes evidence-cited
+reasoning: every `FailurePattern` becomes a `KnowledgePatternRule` - a
+standard `ReasoningRule` - so matched knowledge contributes evidence-cited
 ranking weight through **the exact same interface every built-in rule
 uses**; the reasoning engine has zero knowledge dependency (architecture
 test enforced). Report schema bumped to v5 (`knowledge` field); report.html
 gained a Verification Knowledge section (pattern cards, protocol-sequence
 stepper, playbooks, references). Shipped with only 4 packs (axi, uvm,
-reset-clocking, coverage; 9 patterns total) — **the user flagged this as
+reset-clocking, coverage; 9 patterns total) - **the user flagged this as
 too shallow given the milestone spec explicitly said "every protocol,
 every architecture."**
 
-### Milestone 5 follow-up (v0.5.1) — `6d59aad` — knowledge base breadth
+### Milestone 5 follow-up (v0.5.1) - `6d59aad` - knowledge base breadth
 Direct response to the user's "very less effort" feedback. Expanded from 4
 packs / 9 patterns to **13 packs / 29 patterns / 29 playbooks / 31
 concepts / 9 state machines**, with zero changes to the matcher, the
 reasoning engine, or the report layer (proof that the M5 architecture
-genuinely supports this — the whole diff was pack content plus tests).
+genuinely supports this - the whole diff was pack content plus tests).
 New packs: `apb`, `ahb` (AMBA low/high-speed bus), `chi`, `tilelink`
 (coherent interconnects), `pcie` (LTSSM/credits/completions), `sva`
 (assertion-failure-shape semantics, protocol-agnostic), `cdc` (clock
@@ -174,6 +174,45 @@ under `tests/fixtures/`), proving each pattern fires on realistic evidence
 and reaches the reasoning engine as a cited signal, not just loads without
 error. 166 tests passing (up from 134).
 
+### Milestone 6 (v0.6.0) - Waveform Intelligence Engine
+The reserved `ArtifactType.WAVEFORM_METADATA` (idle since M2) finally has a
+producer. New `waveform/` package with the load-bearing split the milestone
+demanded: **adapters** are the only format-aware code (`adapters/base.py`
+`WaveformAdapter` ABC + capabilities, `adapters/registry.py` `@register_adapter`,
+`adapters/manifest.py` for a simulator-independent JSON manifest, `adapters/vcd.py`
+for VCD via header parse plus a bounded counter-only activity scan that never
+retains transitions), and the **observation engine** (`model.py` normalized
+`WaveformMetadata`, `observations.py` deterministic `ObservationDetector`s,
+`engine.py` `WaveformEngine`) is format-agnostic: it consumes only normalized
+metadata and turns it into engineering observations (dead clock, stalled FSM,
+incomplete handshake, unretired transaction, unexpected reset, repeated retries,
+sequence-never-started). Observations carry full provenance (detector,
+source_adapter, input_signals, deterministic observation_id) and a confidence
+that propagates into evidence and hypotheses; each has an `ObservationCategory`.
+`waveform/parser.py` `WaveformParser` is an ordinary registered `Parser` (so
+`pipeline.analyze()` handles a `.vcd`/`.wave.json` with no pipeline change),
+dispatching to the adapter and projecting observations into evidence nodes.
+`waveform/inference.py` mirrors the M5 knowledge bridge exactly:
+`waveform_reasoning_rules()` wraps each ranking-relevant observation kind as a
+standard `ReasoningRule`, and `build_waveform_context()` assembles the
+report-facing `WaveformContext`. Additive edits only: one correlation pass
+(`_link_waveform_observations_to_failures`) in `graph/builder.py` (links an
+observation to a failure sharing a scope segment, making M5 `suggested_signals`
+actionable), an optional `waveform` field on `AnalysisReport` (schema `5` -> `6`),
+`pipeline.py` composition, a report section, a `waveform` CLI command,
+`models/waveform.py` report views. **Adapter capabilities** give honest
+degradation: VCD declares no TRANSACTIONS/PROTOCOL_ANNOTATIONS, so those
+detectors are reported unavailable rather than silently passing. Two permanent
+architecture laws written into `docs/ARCHITECTURE.md` and pinned by tests:
+core-format isolation and lossy-by-design ingestion. The crown-jewel test
+`test_new_simulator_needs_only_an_adapter` registers a throwaway fake-format
+adapter inside the test and proves it reaches evidence, reasoning, and the
+report with zero core changes. 28 new tests (189 total, up from 161 actual at
+the M5.1 head; note the M5.1 entry's "166" was optimistic, the real count was
+161). Design doc: `docs/WAVEFORM_ENGINE.md`. User-approved refinements folded
+in: observation provenance, categories, adapter capability declaration,
+confidence propagation, and the two laws.
+
 ---
 
 ## 3. Current architecture map
@@ -190,11 +229,17 @@ src/veritriage/
   rules/             Graph-native deterministic classification rules.
   reasoning/         The M3 pipeline: selection, signals, hypotheses, recommend,
                      ai.py (AIReasoner), engine.py (orchestrator). Zero knowledge
-                     or history dependency — architecture tests enforce this.
+                     or history dependency - architecture tests enforce this.
   knowledge/         M5: model.py (schema), registry.py (plugin table), packs/
                      (13 built-in modules), graph.py (frozen KG), matcher.py
                      (deterministic matching + projection), inference.py
                      (KnowledgeEngine + KnowledgePatternRule reasoning adapter).
+  waveform/          M6: model.py (normalized WaveformMetadata + observations),
+                     adapters/ (base+registry+manifest+vcd; the ONLY format-aware
+                     code), observations.py + engine.py (format-agnostic detectors),
+                     parser.py (WaveformParser: Evidence Graph seam), inference.py
+                     (waveform_reasoning_rules + build_waveform_context). Never
+                     imported by reasoning; architecture tests enforce isolation.
   history/           M4: record.py (RegressionRecord + git metadata capture),
                      engine.py (HistoryEngine: record + additive augment).
   signatures/        M4: deterministic FailureSignature + digest.
@@ -204,31 +249,36 @@ src/veritriage/
   feedback/          M4: FeedbackRecord + FeedbackSink protocol (design only).
   dashboard/         M4: DashboardGenerator (self-contained dashboard.html).
   reports/           HTML report generator (Jinja2, self-contained, light/dark).
-  cli/main.py        Typer app: analyze, parsers, knowledge, dashboard, history,
-                     feedback, version.
+  cli/main.py        Typer app: analyze, parsers, knowledge, waveform, dashboard,
+                     history, feedback, version.
   pipeline.py        analyze(): parse -> graph -> classify -> knowledge -> reason.
-                     Library entry point; CLI is a thin wrapper. Stays pure — no
+                     Waveform artifacts parse like any other (WaveformParser is a
+                     registered Parser); waveform_reasoning_rules join the rule set
+                     beside knowledge rules; build_waveform_context fills the report.
+                     Library entry point; CLI is a thin wrapper. Stays pure, no
                      storage I/O (history recording is a CLI-layer decision).
 ```
 
 **Pipeline call order** (`pipeline.py::analyze`): parsers emit graph
 fragments → `GraphBuilder` merges + correlates → `RuleEngine.classify()` →
 `KnowledgeEngine.analyze()` computes the `KnowledgeContext` →
-`ReasoningEngine(rules=[*default_reasoning_rules(), *knowledge_reasoning_rules()])`
+`ReasoningEngine(rules=[*default_reasoning_rules(), *knowledge_reasoning_rules(), *waveform_reasoning_rules()])`
 runs selection/signals/hypotheses/ranking/recommendations, with knowledge
-patterns injected as ordinary rules → `AnalysisReport` assembled
-(`schema_version = "5"`). History recording (`HistoryEngine.record` +
+patterns and waveform observations both injected as ordinary rules →
+`AnalysisReport` assembled (`schema_version = "6"`, `waveform` field via
+`build_waveform_context`). History recording (`HistoryEngine.record` +
 `.augment`) happens in the CLI, strictly after `analyze()` returns, so the
 library function itself never touches the filesystem beyond reading the
 input artifacts.
 
 **Report schema version history:** v1 (M1) → v2 adds Evidence Graph (M2) →
 v3 adds `reasoning` (M3) → v4 adds `history` (M4) → v5 adds `knowledge`
-(M5). Bump on any breaking field change; tests assert the current value.
+(M5) → v6 adds `waveform` (M6). Bump on any breaking field change; tests
+assert the current value (`test_cli.py`).
 
-**Current test count: 166**, across `tests/test_*.py` — parsers, rules,
+**Current test count: 189**, across `tests/test_*.py`: parsers, rules,
 graph, artifact parsers, models, report, CLI, AI boundary, reasoning,
-history, analytics, knowledge. Run with `.venv/bin/python -m pytest -q`
+history, analytics, knowledge, waveform. Run with `.venv/bin/python -m pytest -q`
 from the repo root.
 
 ---
@@ -253,7 +303,7 @@ from the repo root.
   `veritriage analyze <fixtures> -o <tmp>` and copy `report.html`) and
   `veritriage-sample-dashboard.html` (via `veritriage dashboard`), and
   update the project card's description/badges in `index.html`. This is a
-  habit, not a hard requirement — confirm scope with the user if a change
+  habit, not a hard requirement - confirm scope with the user if a change
   is purely internal (e.g., a docs-only fix).
 - Package naming history: TraceIQ (M1, collided with existing PyPI/products)
   → briefly considered "verifAI" (collided with Berkeley's VerifAI) →
@@ -262,48 +312,48 @@ from the repo root.
   user raising it.
 - Standing unexecuted offer: publish an initial release to PyPI to reserve
   the `veritriage` package name. Not done; requires explicit confirmation
-  before acting (irreversible-ish — name squatting disputes are a hassle).
+  before acting (irreversible-ish - name squatting disputes are a hassle).
 
 ---
 
 ## 5. Future work
 
-This section is intentionally detailed — it's the answer to "what's left"
+This section is intentionally detailed - it's the answer to "what's left"
 for whoever (human or agent) picks this up next. Nothing here should be
 started without the user asking for it; this is a map, not a queue.
 
-### 5.1 Knowledge Engine — more packs (natural continuation of the M5 fix)
+### 5.1 Knowledge Engine - more packs (natural continuation of the M5 fix)
 The M5 follow-up covered the milestone's explicit list. Real breadth still
 missing, in likely priority order for a DV audience:
-- **AXI-Stream and ACE/ACE-Lite** (cache-coherent AXI extensions) — natural
+- **AXI-Stream and ACE/ACE-Lite** (cache-coherent AXI extensions) - natural
   sibling to the existing AXI pack; ACE shares failure-pattern shape with
   the `coherency` pack (illegal snoop responses, barrier ordering).
-- **OCP, Wishbone** — older but still-used open interconnects; low effort,
+- **OCP, Wishbone** - older but still-used open interconnects; low effort,
   same pattern-library shape as APB/AHB.
-- **UCIe / die-to-die interconnect** — increasingly relevant for chiplet
+- **UCIe / die-to-die interconnect** - increasingly relevant for chiplet
   designs; would need new concepts (link training analogous to PCIe LTSSM,
   but for die-to-die).
-- **Power management / UPF-aware sequencing** — power domain
+- **Power management / UPF-aware sequencing** - power domain
   sequencing violations (isolation before power-down, retention timing)
   are a distinct enough failure class to warrant concepts + a state
   machine (power domain lifecycle: On → Isolate → Retain → Off).
   This is genuinely new territory (not just "another protocol"); think
   through the state machine before writing patterns.
 - **Security verification** (side-channel timing hints, access-control
-  bypass patterns) — mentioned explicitly in the M5 spec, not yet started.
+  bypass patterns) - mentioned explicitly in the M5 spec, not yet started.
   Needs care: security failure signatures in a sim log are often *absence*
   of an expected check firing, which the current matcher (presence-based
   clauses) handles awkwardly; may need a new clause type ("expected marker
   never appears" as a first-class forbidden-by-omission clause rather than
   today's `must_fail` workaround).
-- **Performance verification** (bandwidth/latency SLA misses) — also
+- **Performance verification** (bandwidth/latency SLA misses) - also
   named in the spec. Needs a new evidence shape (numeric threshold
-  comparison, not just regex presence) — likely needs `EvidenceClause` to
+  comparison, not just regex presence) - likely needs `EvidenceClause` to
   grow a numeric-comparison variant, which *is* a matcher change (the one
   legitimate reason to touch `knowledge/matcher.py` rather than just add a
   pack). Worth flagging to the user before starting since it's the first
   extension that isn't purely additive.
-- **Formal verification result ingestion** — the M5 spec's "formal
+- **Formal verification result ingestion** - the M5 spec's "formal
   verification" line item. This is bigger than a pack: formal tools
   produce proof/counterexample artifacts, not simulation logs, so it likely
   wants a new `ArtifactType` (`formal_result`) and parser first (that's
@@ -313,9 +363,9 @@ missing, in likely priority order for a DV audience:
 ### 5.2 External documentation / reference resolution
 `Reference.uri` exists as a hook but nothing resolves it yet. Two directions:
 - Company-internal spec/wiki adapters (the M5 doc already names this as an
-  extensibility point) — would live outside `knowledge/packs/` entirely,
+  extensibility point) - would live outside `knowledge/packs/` entirely,
   as a separate installable pack a company writes against the same schema.
-- Live link validation / fetching for public specs (AMBA, PCIe SIG) — low
+- Live link validation / fetching for public specs (AMBA, PCIe SIG) - low
   priority, mostly a nice-to-have for the HTML report's reference links.
 
 ### 5.3 Learning feedback (M4's deliberately-unbuilt half)
@@ -324,10 +374,10 @@ not implement machine learning yet, only design the interfaces"). Concrete
 next steps when the user asks for this:
 - Use `FeedbackRecord.diagnosis == "incorrect"` aggregated by
   `FailureSignature` digest to flag signatures where the deterministic
-  rules/patterns are systematically wrong — surface this in the dashboard
+  rules/patterns are systematically wrong - surface this in the dashboard
   as a "needs a new rule" list, not as any model training.
 - Use `useful_recommendations` / `false_recommendations` votes to reweight
-  the `RecommendationEngine`'s per-category step templates — still
+  the `RecommendationEngine`'s per-category step templates - still
   deterministic (a weighted-count reorder), not ML.
 - The explicit non-goal remains: no model retraining, no embedding
   fine-tuning. If a future request asks for that, it's a scope change from
@@ -339,25 +389,30 @@ text-embedding model can be swapped in without touching `history/`,
 `analytics/`, or the report layer. Not started. Would need: an opt-in
 dependency (sentence-transformers or an API-based embedding call), a
 concrete `EmbeddingProvider` implementation, and a decision about whether
-it replaces or augments `FeatureEmbedding` (augment is safer — keep the
+it replaces or augments `FeatureEmbedding` (augment is safer - keep the
 deterministic default, add the learned one behind a flag).
 
-### 5.5 Waveform metadata
-`ArtifactType.WAVEFORM_METADATA` has been reserved since M2 and still has
-no producer. This is the largest remaining Evidence Graph gap. Needs: an
-FSDB/VCD-metadata parser (not full waveform data — metadata like signal
-lists, dump windows, first-X times), a correlation pass linking waveform
-metadata to failing evidence, and then knowledge packs' `suggested_signals`
-fields (already populated across every pack) become directly actionable —
-today they're just names in the report; with waveform metadata evidence
-they could resolve to actual dump-file offsets.
+### 5.5 Waveform metadata - DONE in M6 (v0.6.0)
+Delivered by the Waveform Intelligence Engine. `ArtifactType.WAVEFORM_METADATA`
+now has a producer via `WaveformParser` + adapters (VCD and a JSON manifest;
+FSDB/FST/WLF are documented next adapters). The correlation pass
+`_link_waveform_observations_to_failures` links observations to failing
+evidence sharing a scope segment, and knowledge packs' `suggested_signals` are
+now actionable in practice. Remaining follow-ups worth a future milestone:
+richer transaction/handshake inference from raw VCD (today VCD honestly
+declares no TRANSACTIONS/PROTOCOL_ANNOTATIONS capability and reports those
+analyses unavailable); a numeric-threshold observation kind for timing/perf
+(would want the same numeric `EvidenceClause` variant flagged in 5.1, so
+coordinate the two); resolving observation scopes to actual dump-file offsets
+so a report link can jump straight into the viewer. See
+`docs/WAVEFORM_ENGINE.md`.
 
 ### 5.6 Git history / commit correlation
 Named in both M4 and M5 docs as a future integration. `ExecutionMetadata`
 already captures commit/branch/author per run (M4). Not yet built: a
 correlation pass that, given two regressions' commits, finds what changed
 in the failing module's files between them ("what changed since the
-previous successful run?" — one of the M4 success-criteria questions,
+previous successful run?" - one of the M4 success-criteria questions,
 technically still open). Would live as a new `history/` adapter, not a
 new top-level package.
 
@@ -368,7 +423,7 @@ listed integrations since they're organization-specific and the user
 hasn't asked.
 
 ### 5.8 Front-ends over `pipeline.analyze()`
-VS Code extension, Slack integration, GitHub Action, MCP server — all
+VS Code extension, Slack integration, GitHub Action, MCP server - all
 named in the README roadmap since M1, none started. All are thin clients
 over the existing library entry point (`veritriage.pipeline.analyze`) and
 the CLI; no core-architecture work needed first except possibly waveform

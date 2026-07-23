@@ -22,6 +22,9 @@ from veritriage.parsers.base import ParseResult
 from veritriage.reasoning import ReasoningEngine
 from veritriage.reasoning.signals import default_reasoning_rules
 from veritriage.rules import RuleEngine
+# Importing the waveform package registers its adapters and the waveform parser,
+# so a .vcd or .wave.json artifact is handled with no other pipeline setup.
+from veritriage.waveform import build_waveform_context, waveform_reasoning_rules
 
 
 class AnalysisOutcome(NamedTuple):
@@ -72,12 +75,16 @@ def analyze(
     # reasoning engine itself has no knowledge dependency.
     knowledge_engine = KnowledgeEngine()
     knowledge = knowledge_engine.analyze(graph)
+    # Waveform observations reach reasoning through the same rule interface as
+    # knowledge: matched observations become ordinary evidence-cited signals.
     reasoning = ReasoningEngine(
         rules=[
             *default_reasoning_rules(),
             *knowledge_reasoning_rules(knowledge_engine.knowledge),
+            *waveform_reasoning_rules(),
         ]
     ).reason(graph)
+    waveform = build_waveform_context(results)
 
     # Keep the report focused: warnings and above. INFO stays available to
     # parsers but would bloat analysis.json on chatty logs.
@@ -95,6 +102,7 @@ def analyze(
         events=notable_events,
         reasoning=reasoning,
         knowledge=None if knowledge.is_empty else knowledge,
+        waveform=None if (waveform is None or waveform.is_empty) else waveform,
     )
     return AnalysisOutcome(report=report, graph=graph)
 

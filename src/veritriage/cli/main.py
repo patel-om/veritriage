@@ -143,6 +143,24 @@ def knowledge() -> None:
 
 
 @app.command()
+def waveform() -> None:
+    """List registered waveform adapters and the formats they resolve."""
+    from veritriage.waveform import available_adapters
+
+    table = Table(title="Waveform adapters")
+    for column in ("Adapter", "Format", "File patterns", "Capabilities"):
+        table.add_column(column)
+    for name, cls in sorted(available_adapters().items()):
+        table.add_row(
+            name,
+            cls.format,
+            ", ".join(cls.file_patterns) or "-",
+            ", ".join(sorted(c.value for c in cls.capabilities)) or "-",
+        )
+    console.print(table)
+
+
+@app.command()
 def dashboard(
     output_dir: Path = typer.Option(
         Path("."), "--output-dir", "-o", help="Directory for dashboard.html."

@@ -86,6 +86,12 @@ veritriage analyze simulation.log
 # Analyze a whole run: log + coverage + test metadata, correlated in one graph
 veritriage analyze simulation.log compile.log coverage.txt test_metadata.json -o out/
 
+# Add waveform metadata: a VCD, or a simulator-independent JSON manifest.
+# VeriTriage reads metadata (signal activity, dump window), never transitions,
+# and turns it into engineering observations linked to the failure.
+veritriage analyze simulation.log dump.vcd -o out/
+veritriage analyze simulation.log run.wave.json -o out/
+
 # Add an AI summary grounded in the evidence graph
 veritriage analyze simulation.log -o out/ --ai
 
@@ -98,6 +104,7 @@ veritriage analyze simulation.log --no-history   # opt out of recording
 # Introspection
 veritriage parsers
 veritriage knowledge      # loaded Knowledge Packs
+veritriage waveform       # registered waveform adapters and their capabilities
 veritriage version
 ```
 
@@ -148,19 +155,26 @@ and every evidence item cites its graph node.
 
 ## Artifact types in the graph
 
-Simulation logs, assertions, coverage, test metadata, and compile logs are
-live today; `waveform_metadata` is a reserved type for the future waveform
-parser. Adding an artifact type is a parser plus an optional correlation pass;
-the rule engine and AI layer are untouched by design
+Simulation logs, assertions, coverage, test metadata, compile logs, and
+`waveform_metadata` are all live today. Waveform artifacts arrive through the
+Waveform Intelligence Engine: a `WaveformAdapter` per format (VCD and a
+simulator-independent JSON manifest ship today) normalizes signal-activity
+metadata, and a format-agnostic observation engine turns it into engineering
+observations (dead clock, stalled FSM, incomplete handshake, unretired
+transaction) that enter the graph as evidence and correlate to failures. See
+[WAVEFORM_ENGINE.md](docs/WAVEFORM_ENGINE.md). Adding an artifact type is a
+parser plus an optional correlation pass; the rule engine and AI layer are
+untouched by design
 ([checklist](docs/EVIDENCE_GRAPH.md#adding-a-new-artifact-type-checklist)).
 
 ## Roadmap (documented, not built)
 
-Waveform metadata + FSDB/VCD indexing -> spec retrieval and git-history
-correlation as new node types -> learned similarity embeddings behind the
-existing `EmbeddingProvider` interface -> Jira/CI adapters around the
-RegressionRecord vocabulary -> deeper AI reasoning over the correlated graph
--> VS Code extension, Slack integration, GitHub Action, MCP server.
+More waveform adapters (FSDB, FST, WLF, transaction DBs) behind the existing
+`WaveformAdapter` interface -> spec retrieval and git-history correlation as new
+node types -> learned similarity embeddings behind the existing
+`EmbeddingProvider` interface -> Jira/CI adapters around the RegressionRecord
+vocabulary -> deeper AI reasoning over the correlated graph -> VS Code
+extension, Slack integration, GitHub Action, MCP server.
 
 ## License
 

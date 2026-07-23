@@ -12,6 +12,7 @@ from veritriage.models.failure import AssertionFailure, Failure, FailureCategory
 from veritriage.models.history import HistoricalContext
 from veritriage.models.knowledge import KnowledgeContext
 from veritriage.models.reasoning import ReasoningResult
+from veritriage.models.waveform import WaveformContext
 
 
 class Recommendation(BaseModel):
@@ -78,7 +79,7 @@ class AnalysisReport(BaseModel):
     Version 2 introduces multi-artifact input and the Evidence Graph.
     """
 
-    schema_version: str = "5"
+    schema_version: str = "6"
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     input_files: list[str] = Field(description="Paths of the analyzed artifacts, as given on the CLI.")
     parser_names: list[str] = Field(description="Parsers used, one per input artifact.")
@@ -105,6 +106,12 @@ class AnalysisReport(BaseModel):
     history: HistoricalContext | None = Field(
         default=None,
         description="Regression-database context: is this failure new, and what resembles it.",
+    )
+    waveform: WaveformContext | None = Field(
+        default=None,
+        description="Waveform Intelligence Engine conclusions: engineering observations "
+        "(handshake stalls, dead clocks, stalled FSMs, unretired transactions) plus honest "
+        "notes on analyses an adapter could not run.",
     )
     ai_summary: str | None = Field(
         default=None, description="Optional AI-generated narrative; grounded in `evidence` only."

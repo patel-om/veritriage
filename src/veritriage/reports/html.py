@@ -49,6 +49,14 @@ _OWNERSHIP_ROLE = {
     "infrastructure": "muted",
 }
 
+#: Evidence severity value -> status role for the waveform observation chips.
+_SEVERITY_ROLE = {
+    "fatal": "critical",
+    "error": "serious",
+    "warning": "warning",
+    "info": "muted",
+}
+
 
 class HtmlReportGenerator:
     """Renders an :class:`AnalysisReport` into a single self-contained HTML file."""
@@ -79,6 +87,7 @@ class HtmlReportGenerator:
         return template.render(
             report=report,
             ownership_roles=ownership_roles,
+            waveform_severity_role=_SEVERITY_ROLE,
             status_role=_STATUS_ROLE.get(report.classification.category, "warning"),
             hypothesis_role=_HYPOTHESIS_ROLE,
             fatal_count=report.summary.count(Severity.FATAL),

@@ -1,0 +1,44 @@
+$date today $end
+$version veritriage-test $end
+$timescale 1ns $end
+$scope module tb $end
+$var wire 1 ! clk $end
+$var wire 1 " rst_n $end
+$scope module axi $end
+$var wire 1 # arvalid $end
+$var wire 1 $ arready $end
+$var reg 3 % arstate [2:0] $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+#0
+0!
+0"
+0#
+0$
+b000 %
+#5
+1!
+1"
+#10
+0!
+1#
+#15
+1!
+b001 %
+#20
+0!
+#25
+1!
+#30
+0!
+b010 %
+#35
+1!
+#40
+0!
+0#
+#45
+1!
+#50
+0!

@@ -14,7 +14,7 @@ flowchart LR
     B[compile.log] --> R
     C[coverage.txt] --> R
     D[test_metadata.json] --> R
-    W["waveform metadata\n(reserved, future)"] -.-> R
+    W["waveform (.vcd / .wave.json)\nWaveformAdapter -> observations"] --> R
     R --> P["Parser.parse()\n-> ParseResult"]
     P --> E["Parser.emit_evidence()\n-> GraphFragment\n(nodes + edges)"]
     E --> G[("Evidence Graph")]
@@ -141,13 +141,40 @@ reasoning engine; it just sees more nodes.
 | Future feature | Lands as |
 |---|---|
 | Assertion-log / richer coverage parsers | new `Parser` subclasses emitting fragments |
-| Waveform metadata, FSDB/VCD indexing | parser for the reserved `waveform_metadata` type + a correlation pass |
+| A new waveform simulator (FSDB, FST, WLF, transaction DB) | one `WaveformAdapter` subclass, nothing else (see the two laws below) |
 | Spec retrieval, git correlation | new node types + correlation passes |
 | New protocol/domain expertise (ACE, AXI-Stream, power management, security, formal, company-internal protocols, ...) | a Knowledge Pack module with `@register_pack` |
 | Multi-agent / deeper AI reasoning | consumers of `to_reasoning_view()`, behind the same boundary |
 | Jira / CI / emulation / formal integrations | adapters around the RegressionRecord vocabulary |
 | Learned similarity embeddings | an `EmbeddingProvider` implementation in `similarity/` |
 | VS Code / Slack / GitHub Action / MCP server | front-ends over `veritriage.pipeline.analyze()` |
+
+## Waveform Intelligence (M6) and its two laws
+
+The Waveform Intelligence Engine turns simulator-specific waveform artifacts
+into normalized engineering observations (dead clock, stalled FSM, handshake
+that never completed, transaction that never retired) that enter the Evidence
+Graph as ordinary evidence. Format-aware code is quarantined in adapters; the
+observation engine that draws conclusions is format-agnostic. Full design:
+[WAVEFORM_ENGINE.md](WAVEFORM_ENGINE.md).
+
+Two laws are permanent and each is pinned by a test in `tests/test_waveform.py`:
+
+1. **Core-format isolation.** No component beyond a `WaveformAdapter` may
+   reference a waveform format, parser, file extension, or simulator API. The
+   Verification Intelligence Core operates exclusively on normalized metadata
+   and evidence. (Pinned by `test_waveform_core_is_format_agnostic` and
+   `test_reasoning_has_no_waveform_dependency`.)
+
+2. **Lossy-by-design ingestion.** An adapter normalizes and discards; it never
+   caches or exposes raw transitions. The contract is Raw -> Normalize ->
+   Discard, so VeriTriage can never drift into being a waveform viewer.
+
+The consequence, and the milestone's success criterion, is proven executably by
+`test_new_simulator_needs_only_an_adapter`: a brand-new simulator reaches
+evidence, reasoning, and the report by adding only an adapter class, with no
+change to the Evidence Graph, reasoning, knowledge, regression, report, or AI
+layers.
 
 ## Known limitations
 

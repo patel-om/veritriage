@@ -459,6 +459,62 @@
   </section>
   {% endif %}
 
+  {% if report.waveform %}
+  <section>
+    <h2>Waveform Intelligence</h2>
+    {% if report.waveform.observations %}
+    <p class="lead">
+      The waveform metadata yields {{ report.waveform.observations | length }}
+      engineering observation{{ "s" if report.waveform.observations | length != 1 }}
+      (adapters: {% for a in report.waveform.adapters %}<code>{{ a.adapter }}</code>{% if not loop.last %}, {% endif %}{% endfor %}).
+      No raw transitions are read; every observation is derived from normalized signal-activity metadata.
+    </p>
+    {% endif %}
+    {% for obs in report.waveform.observations %}
+    <div class="card hyp-card">
+      <div class="verdict">
+        <span class="chip"><span class="dot {{ waveform_severity_role.get(obs.severity, "muted") }}"></span>{{ obs.kind.replace("_", " ") }}</span>
+        <span class="rule-name">{{ obs.category }} · detected by {{ obs.detector }} ({{ obs.source_adapter }} adapter){% if obs.scope %} · scope {{ obs.scope }}{% endif %}</span>
+      </div>
+      <div class="meter">
+        <div class="meter-head"><span>Confidence</span><b>{{ "%.0f" | format(obs.confidence * 100) }}%</b></div>
+        <div class="track"><div class="fill" style="width: {{ obs.confidence * 100 }}%"></div></div>
+      </div>
+      <p class="verdict-summary">{{ obs.description }}</p>
+      {% if obs.signals %}
+      <p class="ev-refs"><b>Signals:</b> {% for s in obs.signals %}<code>{{ s }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+        {% if obs.sim_time_start is not none %} · window {{ obs.sim_time_start }}{% if obs.sim_time_end is not none %} to {{ obs.sim_time_end }}{% endif %}{% endif %}
+      </p>
+      {% endif %}
+      <p class="ev-refs"><b>Observation ID:</b> <code>{{ obs.observation_id }}</code></p>
+    </div>
+    {% endfor %}
+
+    {% if report.waveform.unavailable %}
+    <div class="card">
+      <p class="ev-refs" style="margin: 0 0 8px;"><b>Analyses not available for this run</b> (honest degradation, not "no problem found")</p>
+      {% for u in report.waveform.unavailable %}
+      <p style="margin: 6px 0 0; color: var(--ink-2); font-size: 13.5px;">
+        <span class="chip"><span class="dot muted"></span>{{ u.detector }}</span>
+        needs <code>{{ u.required_capability }}</code>, which the {{ u.adapter }} adapter does not resolve.
+      </p>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <p class="ev-refs" style="margin: 0 0 8px;"><b>Waveform sources</b></p>
+      {% for a in report.waveform.adapters %}
+      <p style="margin: 6px 0 0; color: var(--ink-2); font-size: 13.5px;">
+        <b style="color: var(--ink);">{{ a.adapter }}</b> <span class="rule-name">({{ a.format }} format{% if a.simulator %}, {{ a.simulator }}{% endif %})</span>
+        · {{ a.signal_count }} signal{{ "s" if a.signal_count != 1 }}{% if a.dump_end is not none %}, dump window {{ a.dump_start }} to {{ a.dump_end }}{% endif %}
+        · resolves {% for c in a.capabilities %}<code>{{ c }}</code>{% if not loop.last %} {% endif %}{% endfor %}
+      </p>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
   {% if report.history %}
   <section>
     <h2>Historical Context</h2>

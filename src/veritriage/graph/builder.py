@@ -35,6 +35,7 @@ class GraphBuilder:
         """Run all correlation passes and return the finished graph."""
         _link_events_to_test_runs(self._graph)
         _link_coverage_holes_to_failures(self._graph)
+        _link_waveform_observations_to_failures(self._graph)
         return self._graph
 
 
@@ -88,5 +89,50 @@ def _link_coverage_holes_to_failures(graph: EvidenceGraph) -> None:
                             f"Coverage hole in scope '{segment}' matches the scope of this failure."
                         ),
                         confidence=0.7,
+                    )
+                )
+
+
+def _link_waveform_observations_to_failures(graph: EvidenceGraph) -> None:
+    """A waveform observation in the same scope as a failure corroborates it.
+
+    This is the payoff of M5's ``suggested_signals``: a waveform observation
+    about a signal in a failing module now links to the failure, so the report
+    can point from "outstanding transaction never retired" straight to the log
+    failure it explains. Scope match is conservative: a hierarchy segment of the
+    observation's scope (length 3 or more) must appear in the failing node's
+    module path or source file, and observations never link to themselves or to
+    other waveform nodes.
+    """
+    observations = [
+        n for n in graph.nodes_of_type(ArtifactType.WAVEFORM_METADATA) if n.module
+    ]
+    if not observations:
+        return
+    failing = [
+        n for n in graph.failing() if n.artifact_type != ArtifactType.WAVEFORM_METADATA
+    ]
+    if not failing:
+        return
+    for observation in observations:
+        segments = [
+            seg.lower() for seg in (observation.module or "").split(".") if len(seg) >= 3
+        ]
+        if not segments:
+            continue
+        for node in failing:
+            haystack = f"{node.module or ''} {node.attributes.get('source_file') or ''}".lower()
+            matched = next((seg for seg in segments if seg in haystack), None)
+            if matched is not None:
+                graph.add_edge(
+                    EvidenceEdge(
+                        source_id=observation.id,
+                        target_id=node.id,
+                        relation=RelationType.CORRELATES_WITH,
+                        rationale=(
+                            f"Waveform observation in scope '{matched}' matches the scope of "
+                            f"this failure."
+                        ),
+                        confidence=0.6,
                     )
                 )

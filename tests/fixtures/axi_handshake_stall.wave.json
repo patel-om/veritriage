@@ -1,0 +1,18 @@
+{
+  "simulator": "vcs",
+  "timescale": "1ns",
+  "dump": { "start": 0, "end": 20000 },
+  "signals": [
+    { "name": "clk", "scope": "tb", "role": "clock", "width": 1, "toggle_count": 2000, "first_edge": 0, "last_edge": 20000 },
+    { "name": "rst_n", "scope": "tb", "role": "reset", "width": 1, "toggle_count": 1, "first_edge": 100, "last_edge": 100 },
+    { "name": "arvalid", "scope": "tb.dut.axi", "role": "valid", "width": 1, "toggle_count": 4, "first_edge": 40, "last_edge": 5000 },
+    { "name": "arready", "scope": "tb.dut.axi", "role": "ready", "width": 1, "toggle_count": 0, "first_edge": null, "last_edge": null },
+    { "name": "arstate", "scope": "tb.dut.axi", "role": "state", "width": 3, "toggle_count": 3, "first_edge": 40, "last_edge": 4000 }
+  ],
+  "handshakes": [
+    { "name": "AR", "scope": "tb.dut.axi", "initiator": "arvalid", "responder": "arready" }
+  ],
+  "transactions": [
+    { "id": "rd0", "kind": "read", "scope": "tb.dut.axi", "start": 40, "end": null, "retry_count": 0 }
+  ]
+}
