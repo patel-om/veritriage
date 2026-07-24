@@ -6,6 +6,12 @@ ever touches raw artifact text again. Note: this package must never import
 ``veritriage.graph`` at runtime (the graph imports these models).
 """
 
+from veritriage.models.engineering import (
+    EngineeringContextView,
+    ImpactedTestView,
+    InvestigationView,
+    TimelineEventView,
+)
 from veritriage.models.events import Severity, SimulationEvent
 from veritriage.models.evidence import Evidence
 from veritriage.models.failure import AssertionFailure, Failure, FailureCategory
@@ -53,6 +59,7 @@ __all__ = [
     "ClassificationResult",
     "ConfidenceContribution",
     "ConfidenceTrace",
+    "EngineeringContextView",
     "EngineeringRecommendation",
     "Evidence",
     "Failure",
@@ -61,6 +68,8 @@ __all__ = [
     "HistoricalContext",
     "Hypothesis",
     "HypothesisCategory",
+    "ImpactedTestView",
+    "InvestigationView",
     "KnowledgeContext",
     "KnowledgeReference",
     "LogSummary",
@@ -77,6 +86,7 @@ __all__ = [
     "SimulationEvent",
     "StateProgress",
     "StateProjection",
+    "TimelineEventView",
     "WaveformCapabilityView",
     "WaveformContext",
     "WaveformObservationView",

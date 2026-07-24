@@ -15,6 +15,7 @@ flowchart LR
     C[coverage.txt] --> R
     D[test_metadata.json] --> R
     W["waveform (.vcd / .wave.json)\nWaveformAdapter -> observations"] --> R
+    E["engineering context (*.engctx.json,\nor live providers via the CLI)"] --> R
     R --> P["Parser.parse()\n-> ParseResult"]
     P --> E["Parser.emit_evidence()\n-> GraphFragment\n(nodes + edges)"]
     E --> G[("Evidence Graph")]
@@ -142,7 +143,8 @@ reasoning engine; it just sees more nodes.
 |---|---|
 | Assertion-log / richer coverage parsers | new `Parser` subclasses emitting fragments |
 | A new waveform simulator (FSDB, FST, WLF, transaction DB) | one `WaveformAdapter` subclass, nothing else (see the two laws below) |
-| Spec retrieval, git correlation | new node types + correlation passes |
+| A new engineering system (GitHub, GitLab, Perforce, Gerrit, Jenkins, Jira, DOORS) | one `ContextProvider` subclass, nothing else (see the M7 laws below) |
+| Spec retrieval | new node types + correlation passes |
 | New protocol/domain expertise (ACE, AXI-Stream, power management, security, formal, company-internal protocols, ...) | a Knowledge Pack module with `@register_pack` |
 | Multi-agent / deeper AI reasoning | consumers of `to_reasoning_view()`, behind the same boundary |
 | Jira / CI / emulation / formal integrations | adapters around the RegressionRecord vocabulary |
@@ -175,6 +177,38 @@ The consequence, and the milestone's success criterion, is proven executably by
 evidence, reasoning, and the report by adding only an adapter class, with no
 change to the Evidence Graph, reasoning, knowledge, regression, report, or AI
 layers.
+
+## Engineering Context (M7) and its two laws
+
+The Engineering Context Engine answers "what changed?" before "what broke?":
+pluggable providers (v1: local git, and a canonical JSON manifest any CI can
+export) normalize commits, changed files, CI runs, ownership, and issues into
+tool-independent context, which becomes ordinary evidence
+(`ArtifactType.ENGINEERING_CHANGE`) correlated to failures and weighted into
+hypothesis ranking through standard reasoning rules. Full design:
+[ENGINEERING_CONTEXT_ENGINE.md](ENGINEERING_CONTEXT_ENGINE.md).
+
+Two laws are permanent and each is pinned by a test in
+`tests/test_engineering.py`:
+
+1. **Core-tool isolation.** No component beyond a `ContextProvider` may
+   reference Git, a hosting platform, a CI system, or any engineering-tool
+   API or binary. Since M7, `history`'s `capture_execution_metadata`
+   delegates to the git provider, so the law holds repo-wide with no
+   grandfather clause. (Pinned by `test_no_git_outside_providers` and
+   `test_engineering_core_is_tool_agnostic`.)
+
+2. **Evidence, never conclusions.** Engineering context enters only as
+   evidence nodes and evidence-cited signals; ownership informs
+   recommendations only and never ranking (pinned by
+   `test_ownership_never_reaches_ranking`), and the timeline/investigation
+   views are pure projections of the Evidence Graph that never mutate it
+   (pinned by `test_projections_do_not_mutate_the_graph`).
+
+The success criterion is proven executably by
+`test_new_system_needs_only_a_provider`: a brand-new engineering system
+reaches evidence, correlation, reasoning, and the report by adding only a
+provider class.
 
 ## Known limitations
 

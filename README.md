@@ -92,6 +92,15 @@ veritriage analyze simulation.log compile.log coverage.txt test_metadata.json -o
 veritriage analyze simulation.log dump.vcd -o out/
 veritriage analyze simulation.log run.wave.json -o out/
 
+# Engineering context: "what changed?" before "what broke?". Gathered by
+# default from the working tree (recent commits via git, or a *.engctx.json
+# manifest any CI can export); correlated changes become evidence.
+veritriage analyze simulation.log -o out/                  # context on by default
+veritriage analyze simulation.log --no-context -o out/     # opt out
+veritriage investigate simulation.log                      # context + timeline + investigation view
+veritriage impact                                          # tests likely hit by current changes (from history)
+veritriage context                                         # what the providers see here
+
 # Add an AI summary grounded in the evidence graph
 veritriage analyze simulation.log -o out/ --ai
 
@@ -170,11 +179,12 @@ untouched by design
 ## Roadmap (documented, not built)
 
 More waveform adapters (FSDB, FST, WLF, transaction DBs) behind the existing
-`WaveformAdapter` interface -> spec retrieval and git-history correlation as new
-node types -> learned similarity embeddings behind the existing
-`EmbeddingProvider` interface -> Jira/CI adapters around the RegressionRecord
-vocabulary -> deeper AI reasoning over the correlated graph -> VS Code
-extension, Slack integration, GitHub Action, MCP server.
+`WaveformAdapter` interface -> more context providers (GitHub, GitLab,
+Perforce, Gerrit, Jenkins, Jira, DOORS) behind the existing `ContextProvider`
+interface -> spec retrieval as new node types -> learned similarity embeddings
+behind the existing `EmbeddingProvider` interface -> deeper AI reasoning over
+the correlated graph -> VS Code extension, Slack integration, GitHub Action,
+MCP server.
 
 ## License
 

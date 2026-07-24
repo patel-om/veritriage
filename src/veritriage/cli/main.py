@@ -58,13 +58,22 @@ def analyze(
         "--history/--no-history",
         help="Record this run in the regression database and attach historical context.",
     ),
+    context: bool = typer.Option(
+        True,
+        "--context/--no-context",
+        help="Gather engineering context (recent commits, manifests) from the context root.",
+    ),
+    context_root: Path = typer.Option(
+        Path("."), "--context-root", help="Directory the context providers inspect."
+    ),
     db: Path = typer.Option(
         DEFAULT_DB, "--db", help="Regression database file (created on first use)."
     ),
 ) -> None:
     """Analyze verification artifacts into an evidence graph and reports."""
+    engineering = _gather_context(context_root) if context else None
     try:
-        outcome = run_analysis(artifacts, parser_name=parser)
+        outcome = run_analysis(artifacts, parser_name=parser, engineering=engineering)
     except (FileNotFoundError, ValueError) as exc:
         _err.print(f"[red]error:[/red] {escape(str(exc))}")
         raise typer.Exit(code=2)
@@ -156,6 +165,186 @@ def waveform() -> None:
             cls.format,
             ", ".join(cls.file_patterns) or "-",
             ", ".join(sorted(c.value for c in cls.capabilities)) or "-",
+        )
+    console.print(table)
+
+
+def _gather_context(root: Path):
+    """Collect engineering context from every available provider, best-effort.
+
+    Returns None when nothing contributed so the pipeline's report keeps its
+    ``engineering`` field absent instead of empty.
+    """
+    from veritriage.engineering import collect_context
+
+    gathered = collect_context(root)
+    return None if gathered.is_empty else gathered
+
+
+@app.command()
+def context(
+    root: Path = typer.Option(Path("."), "--root", help="Directory the providers inspect."),
+    commits: int = typer.Option(10, "--commits", "-n", help="How many recent commits to gather."),
+) -> None:
+    """Show the normalized engineering context the providers see for a root."""
+    from veritriage.engineering import available_providers, collect_context
+
+    table = Table(title="Context providers")
+    for column in ("Provider", "Source", "Available here", "Capabilities"):
+        table.add_column(column)
+    for name, cls in sorted(available_providers().items()):
+        table.add_row(
+            name,
+            cls.source,
+            "yes" if cls.available(root) else "no",
+            ", ".join(sorted(c.value for c in cls.capabilities)) or "-",
+        )
+    console.print(table)
+
+    gathered = collect_context(root, max_commits=commits)
+    if gathered.is_empty:
+        console.print("[dim]no engineering context available at this root[/dim]")
+        return
+    changes = Table(title=f"Recent changes ({', '.join(gathered.sources)})")
+    for column in ("Revision", "Author", "When", "Title", "Files"):
+        changes.add_column(column)
+    for commit in gathered.commits:
+        changes.add_row(
+            commit.revision[:10],
+            commit.author or "-",
+            commit.timestamp.strftime("%Y-%m-%d %H:%M") if commit.timestamp else "-",
+            commit.title,
+            str(len(commit.files)),
+        )
+    console.print(changes)
+    if gathered.ci_run is not None:
+        ci = gathered.ci_run
+        drift = "; ".join(ci.environment_changes) or "none declared"
+        console.print(
+            f"CI: [bold]{ci.pipeline or 'unknown'}[/bold]"
+            + (f" #{ci.build_number}" if ci.build_number else "")
+            + f"  |  environment drift: {escape(drift)}"
+        )
+    for entry in gathered.ownership:
+        console.print(f"[dim]owner:[/dim] {escape(entry.scope)} -> {escape(entry.owner)} ({entry.role})")
+
+
+@app.command()
+def investigate(
+    artifacts: List[Path] = typer.Argument(..., help="Artifacts to analyze with full context."),
+    context_root: Path = typer.Option(
+        Path("."), "--context-root", help="Directory the context providers inspect."
+    ),
+    output_dir: Optional[Path] = typer.Option(
+        None, "--output-dir", "-o", help="Also write analysis.json / report.html here."
+    ),
+) -> None:
+    """Analyze with engineering context and print the investigation view."""
+    engineering = _gather_context(context_root)
+    try:
+        outcome = run_analysis(artifacts, engineering=engineering)
+    except (FileNotFoundError, ValueError) as exc:
+        _err.print(f"[red]error:[/red] {escape(str(exc))}")
+        raise typer.Exit(code=2)
+    report, graph = outcome
+    _print_summary(report)
+
+    view = report.engineering
+    if view is None:
+        console.print("[dim]no engineering context contributed to this run[/dim]")
+    else:
+        if view.timeline:
+            timeline = Table(title="Engineering timeline")
+            for column in ("Phase", "When", "Event", "Evidence"):
+                timeline.add_column(column)
+            for event in view.timeline:
+                timeline.add_row(
+                    event.phase, event.when or "-", event.label, event.node_id or "-"
+                )
+            console.print(timeline)
+        if view.investigation is not None:
+            layers = Table(title="Investigation view (Evidence Graph projection)")
+            for column in ("Layer", "Nodes", "IDs"):
+                layers.add_column(column)
+            for layer in view.investigation.layers:
+                layers.add_row(
+                    layer.name, str(len(layer.node_ids)), ", ".join(layer.node_ids[:4])
+                )
+            console.print(layers)
+            for edge in view.investigation.cross_edges[:8]:
+                console.print(
+                    f"[dim]{edge.source_id} -{edge.relation}-> {edge.target_id}:[/dim] "
+                    f"{escape(edge.rationale)}"
+                )
+
+    if output_dir is not None:
+        write_json(report, output_dir / "analysis.json")
+        write_json(graph, output_dir / "evidence_graph.json")
+        HtmlReportGenerator().write(report, output_dir / "report.html", graph=graph)
+        console.print(f"\n[dim]wrote artifacts to[/dim] {output_dir}")
+
+    if report.classification.category.value != "no_failure":
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def impact(
+    context_root: Path = typer.Option(
+        Path("."), "--context-root", help="Directory the context providers inspect."
+    ),
+    limit: int = typer.Option(10, "--limit", "-n", help="How many impacted tests to show."),
+    db: Path = typer.Option(DEFAULT_DB, "--db", help="Regression database file."),
+) -> None:
+    """Rank tests likely affected by the current changes, from history."""
+    from veritriage.engineering import HistoricalRegression, impacted_tests_from_history
+    from veritriage.storage import RegressionStore
+
+    engineering = _gather_context(context_root)
+    if engineering is None or not engineering.changed_modules():
+        console.print("[dim]no changed modules found at this root; nothing to rank[/dim]")
+        return
+    if not db.is_file():
+        _err.print(f"[red]error:[/red] no regression database at {db}; run an analysis first")
+        raise typer.Exit(code=2)
+
+    with RegressionStore(db) as store:
+        history_slices = [
+            HistoricalRegression(
+                regression_id=record.regression_id,
+                test_name=record.test_name,
+                failing_modules=tuple(
+                    sorted(
+                        {
+                            token
+                            for node in record.graph.failing()
+                            for token in (
+                                node.module or "",
+                                str(node.attributes.get("source_file") or ""),
+                            )
+                            if token
+                        }
+                    )
+                ),
+                classification=record.classification,
+                created_at=record.created_at,
+            )
+            for record in store.all_records()
+            if record.is_failure
+        ]
+
+    ranked = impacted_tests_from_history(engineering, history_slices, limit=limit)
+    if not ranked:
+        console.print("[dim]no historical failures overlap the changed modules[/dim]")
+        return
+    table = Table(title=f"Likely impacted tests ({len(engineering.changed_modules())} changed modules)")
+    for column in ("Test", "Score", "Why", "Regressions"):
+        table.add_column(column)
+    for entry in ranked:
+        table.add_row(
+            entry.test_name,
+            f"{entry.score:.2f}",
+            entry.reason,
+            ", ".join(entry.regression_ids[:3]),
         )
     console.print(table)
 

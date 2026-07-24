@@ -25,8 +25,11 @@ class ArtifactType(str, Enum):
     COVERAGE = "coverage"
     TEST_METADATA = "test_metadata"
     COMPILE_LOG = "compile_log"
-    #: Reserved for a future waveform metadata parser; no producer in v2.
+    #: Produced by the Waveform Intelligence Engine since M6 (v0.6.0).
     WAVEFORM_METADATA = "waveform_metadata"
+    #: Produced by the Engineering Context Engine since M7 (v0.7.0): commits,
+    #: CI runs, and other engineering change, normalized by context providers.
+    ENGINEERING_CHANGE = "engineering_change"
 
 
 class RelationType(str, Enum):

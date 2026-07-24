@@ -9,7 +9,7 @@ what's next" record.
 
 Repo: https://github.com/patel-om/veritriage (public, Apache-2.0)
 Local path: `/Users/ompatel/Documents/veritriage`
-Current version: **0.6.0**
+Current version: **0.7.0**
 Portfolio integration: card + sample artifacts in
 `/Users/ompatel/Documents/Om Portfolio` (`index.html`,
 `veritriage-sample-report.html`, `veritriage-sample-dashboard.html`)
@@ -213,6 +213,45 @@ the M5.1 head; note the M5.1 entry's "166" was optimistic, the real count was
 in: observation provenance, categories, adapter capability declaration,
 confidence propagation, and the two laws.
 
+### Milestone 7 (v0.7.0) - Engineering Context Engine
+Answers "what changed?" before "what broke?": engineering change becomes one
+more normalized evidence source, and VeriTriage grows from a verification
+intelligence platform into an engineering investigation platform. New
+`engineering/` package with the M6 split applied to tools: **providers** are
+the only tool-aware code (`providers/base.py` `ContextProvider` ABC +
+`ContextCapability`, `providers/registry.py` `@register_provider` +
+`collect_context`, `providers/git.py` local git via subprocess, the platform's
+ONLY git call site, `providers/manifest.py` canonical `*.engctx.json` any CI
+can export), and everything downstream is tool-agnostic: `model.py` (frozen
+`EngineeringContext`: bounded commits with categorized `ChangedFile`s, `CIRun`
+with declared `environment_changes`, `Ownership`, `IssueRef`; lossy by design,
+no diffs or patch text survive), `context.py` (evidence emission + report view
++ ownership augment), `inference.py` (4 modest-weight `ReasoningRule`s:
+RTL/testbench change in failing scope, build-flow change, environment drift
+toward INFRASTRUCTURE), `impact.py` (deterministic two-tier test impact:
+in-run pure, historical via CLI-mapped `HistoricalRegression` slices; no
+storage import), `ownership.py` (routing recommendation only, appended via the
+M4 additive-augment seam; never ranking, test-enforced), `timeline.py` +
+`investigation.py` (pure projections of the Evidence Graph, never new graphs,
+mutation-tested). One new enum member (`ArtifactType.ENGINEERING_CHANGE`),
+zero new relation types. Additive edits: correlation pass
+`_link_engineering_changes_to_failures`, `analyze(engineering=...)` optional
+keyword (CLI gathers via providers with `--context/--no-context`, default on,
+degrades silently outside a repo; pipeline stays pure), report schema `6` ->
+`7` (`engineering` field), report section, CLI commands `context`,
+`investigate`, `impact`. **M4 migration:** `capture_execution_metadata` now
+delegates (lazily) to `providers/git.py::execution_snapshot`, so the "no git
+outside providers" law holds repo-wide with no grandfather clause. Ownership
+and issues deliberately never become graph nodes. Two permanent laws in
+`docs/ARCHITECTURE.md` (core-tool isolation; evidence never conclusions),
+each test-pinned. Crown-jewel test `test_new_system_needs_only_a_provider`:
+a fake Perforce provider defined inside the test reaches evidence,
+correlation, reasoning, and the report with zero core changes. 24 new tests
+(213 total). CLI tests pin `--no-context` for determinism (they run inside
+the real repo). Design doc: `docs/ENGINEERING_CONTEXT_ENGINE.md` (approved
+before implementation; scope, git-law migration, and default-on context all
+user-confirmed).
+
 ---
 
 ## 3. Current architecture map
@@ -240,6 +279,15 @@ src/veritriage/
                      parser.py (WaveformParser: Evidence Graph seam), inference.py
                      (waveform_reasoning_rules + build_waveform_context). Never
                      imported by reasoning; architecture tests enforce isolation.
+  engineering/       M7: model.py (frozen EngineeringContext + capabilities),
+                     providers/ (base+registry+git+manifest; the ONLY tool-aware
+                     code, and the only git call site in the platform),
+                     parser.py (*.engctx.json artifact seam), context.py
+                     (evidence emission + view + ownership augment), inference.py
+                     (engineering_reasoning_rules), impact.py (two-tier test
+                     impact), ownership.py (routing only), timeline.py +
+                     investigation.py (pure graph projections). Never imported
+                     by reasoning; architecture tests enforce isolation.
   history/           M4: record.py (RegressionRecord + git metadata capture),
                      engine.py (HistoryEngine: record + additive augment).
   signatures/        M4: deterministic FailureSignature + digest.
@@ -249,14 +297,16 @@ src/veritriage/
   feedback/          M4: FeedbackRecord + FeedbackSink protocol (design only).
   dashboard/         M4: DashboardGenerator (self-contained dashboard.html).
   reports/           HTML report generator (Jinja2, self-contained, light/dark).
-  cli/main.py        Typer app: analyze, parsers, knowledge, waveform, dashboard,
-                     history, feedback, version.
+  cli/main.py        Typer app: analyze, parsers, knowledge, waveform, context,
+                     investigate, impact, dashboard, history, feedback, version.
   pipeline.py        analyze(): parse -> graph -> classify -> knowledge -> reason.
-                     Waveform artifacts parse like any other (WaveformParser is a
-                     registered Parser); waveform_reasoning_rules join the rule set
-                     beside knowledge rules; build_waveform_context fills the report.
-                     Library entry point; CLI is a thin wrapper. Stays pure, no
-                     storage I/O (history recording is a CLI-layer decision).
+                     Waveform artifacts and context manifests parse like any other
+                     (registered Parsers); waveform + engineering reasoning rules
+                     join the rule set beside knowledge rules; build_waveform_context
+                     and build_engineering_view fill the report; ownership augment
+                     appends last. analyze(engineering=...) accepts CLI-collected
+                     context so the library stays pure, no provider or storage I/O
+                     (context gathering and history recording are CLI decisions).
 ```
 
 **Pipeline call order** (`pipeline.py::analyze`): parsers emit graph
@@ -273,13 +323,13 @@ input artifacts.
 
 **Report schema version history:** v1 (M1) → v2 adds Evidence Graph (M2) →
 v3 adds `reasoning` (M3) → v4 adds `history` (M4) → v5 adds `knowledge`
-(M5) → v6 adds `waveform` (M6). Bump on any breaking field change; tests
-assert the current value (`test_cli.py`).
+(M5) → v6 adds `waveform` (M6) → v7 adds `engineering` (M7). Bump on any
+breaking field change; tests assert the current value (`test_cli.py`).
 
-**Current test count: 189**, across `tests/test_*.py`: parsers, rules,
+**Current test count: 213**, across `tests/test_*.py`: parsers, rules,
 graph, artifact parsers, models, report, CLI, AI boundary, reasoning,
-history, analytics, knowledge, waveform. Run with `.venv/bin/python -m pytest -q`
-from the repo root.
+history, analytics, knowledge, waveform, engineering. Run with
+`.venv/bin/python -m pytest -q` from the repo root.
 
 ---
 
@@ -407,20 +457,27 @@ coordinate the two); resolving observation scopes to actual dump-file offsets
 so a report link can jump straight into the viewer. See
 `docs/WAVEFORM_ENGINE.md`.
 
-### 5.6 Git history / commit correlation
-Named in both M4 and M5 docs as a future integration. `ExecutionMetadata`
-already captures commit/branch/author per run (M4). Not yet built: a
-correlation pass that, given two regressions' commits, finds what changed
-in the failing module's files between them ("what changed since the
-previous successful run?" - one of the M4 success-criteria questions,
-technically still open). Would live as a new `history/` adapter, not a
-new top-level package.
+### 5.6 Git history / commit correlation - LARGELY DONE in M7 (v0.7.0)
+Delivered by the Engineering Context Engine, which superseded the M4-era
+plan of "a new history/ adapter" with a first-class `engineering/` package
+(providers are a general seam, not a git-only one; the M7 spec was explicit
+about this). Shipped: recent-commit collection (git provider), change ->
+failure correlation pass, change-category reasoning signals, ownership
+routing, two-tier test impact, timeline, investigation view.
+`capture_execution_metadata` now delegates to the git provider. Remaining
+follow-up worth a future increment: cross-regression diffing ("what changed
+between THIS run's commit and the last green run's commit?"), which needs
+the regression DB's per-run commits joined with a provider diff query;
+would live as a new history-aware analysis in `engineering/impact.py` or a
+`history/` consumer, still behind the provider seam.
 
-### 5.7 CI / issue-tracker adapters
-Jira and CI-system adapters are named as extensibility points in
-`docs/REGRESSION_INTELLIGENCE.md`. Nothing built. Lowest priority of the
-listed integrations since they're organization-specific and the user
-hasn't asked.
+### 5.7 CI / issue-tracker adapters - seam now exists (M7)
+The `ContextProvider` interface (M7) is exactly the seam these plug into:
+a Jenkins/GitHub-Actions/Jira/DOORS integration is one registered provider
+class, proven by `test_new_system_needs_only_a_provider`. The canonical
+`*.engctx.json` manifest already lets any CI feed context without a
+dedicated provider. Live API providers remain unbuilt (organization
+specific; the user hasn't asked).
 
 ### 5.8 Front-ends over `pipeline.analyze()`
 VS Code extension, Slack integration, GitHub Action, MCP server - all
@@ -439,6 +496,6 @@ PyPI to reserve the name. Requires explicit user go-ahead.
   pass any time a new milestone lands, to keep the "why v3+ needs no
   restructuring" style tables current (this file's section 3 is a faster
   place to check current state than re-reading every doc).
-- No known failing tests or open bugs as of `6d59aad` (166/166 passing).
+- No known failing tests or open bugs as of M7 (213/213 passing).
 - `analyzers/` package (superseded by `reasoning/ai.py` at M3) was already
   removed; if it ever reappears from a bad merge, delete it again.

@@ -13,6 +13,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import NamedTuple, Sequence
 
+# Importing the engineering package registers its providers and the context
+# manifest parser, so a *.engctx.json artifact is handled with no other setup;
+# live provider collection stays a CLI-layer decision to keep this function pure.
+from veritriage.engineering import (
+    EngineeringContext,
+    augment_with_ownership,
+    build_engineering_view,
+    emit_engineering_evidence,
+    engineering_reasoning_rules,
+    stored_context,
+)
 from veritriage.graph.builder import GraphBuilder
 from veritriage.graph.graph import EvidenceGraph
 from veritriage.knowledge import KnowledgeEngine, knowledge_reasoning_rules
@@ -38,15 +49,22 @@ def analyze(
     paths: Path | Sequence[Path],
     parser_name: str | None = None,
     engine: RuleEngine | None = None,
+    engineering: EngineeringContext | None = None,
 ) -> AnalysisOutcome:
     """Analyze one or more artifacts and return the report plus the graph.
 
     Args:
         paths: Artifact paths (simulation log, compile log, coverage summary,
-            test metadata). A single Path is accepted for convenience.
+            test metadata, waveform, context manifest). A single Path is
+            accepted for convenience.
         parser_name: Force one registered parser for every artifact;
             auto-detected per file when None.
         engine: Rule engine to use; the default built-in rule set if None.
+        engineering: Already-normalized engineering context (collected by the
+            CLI from the provider registry). The pipeline consumes it and
+            never calls a provider itself, so this function stays a pure
+            function of its inputs. Context manifests passed as artifact
+            files need no parameter at all.
 
     Raises:
         FileNotFoundError: If any path does not exist.
@@ -65,6 +83,16 @@ def analyze(
         result = parser.parse(path)
         results.append(result)
         builder.add_fragment(parser.emit_evidence(result))
+
+    # Merge injected context with any manifest artifacts; content-hashed node
+    # IDs make double delivery of the same commit a no-op merge, not a dupe.
+    context = engineering or EngineeringContext()
+    for result in results:
+        stored = stored_context(result)
+        if stored is not None:
+            context = context.merge(stored)
+    if engineering is not None and not engineering.is_empty:
+        builder.add_fragment(emit_engineering_evidence(engineering))
     graph = builder.build()
 
     engine = engine or RuleEngine()
@@ -75,13 +103,14 @@ def analyze(
     # reasoning engine itself has no knowledge dependency.
     knowledge_engine = KnowledgeEngine()
     knowledge = knowledge_engine.analyze(graph)
-    # Waveform observations reach reasoning through the same rule interface as
-    # knowledge: matched observations become ordinary evidence-cited signals.
+    # Waveform observations and engineering changes reach reasoning through
+    # the same rule interface as knowledge: ordinary evidence-cited signals.
     reasoning = ReasoningEngine(
         rules=[
             *default_reasoning_rules(),
             *knowledge_reasoning_rules(knowledge_engine.knowledge),
             *waveform_reasoning_rules(),
+            *engineering_reasoning_rules(),
         ]
     ).reason(graph)
     waveform = build_waveform_context(results)
@@ -104,6 +133,10 @@ def analyze(
         knowledge=None if knowledge.is_empty else knowledge,
         waveform=None if (waveform is None or waveform.is_empty) else waveform,
     )
+    # Engineering view and ownership routing come last: both read the finished
+    # report (correlations, hypotheses) and only append, never rewrite.
+    report.engineering = build_engineering_view(context, graph, report)
+    augment_with_ownership(report, graph, context)
     return AnalysisOutcome(report=report, graph=graph)
 
 

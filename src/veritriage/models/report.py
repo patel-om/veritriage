@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from veritriage.models.events import Severity, SimulationEvent
 from veritriage.models.evidence import Evidence
 from veritriage.models.failure import AssertionFailure, Failure, FailureCategory
+from veritriage.models.engineering import EngineeringContextView
 from veritriage.models.history import HistoricalContext
 from veritriage.models.knowledge import KnowledgeContext
 from veritriage.models.reasoning import ReasoningResult
@@ -79,7 +80,7 @@ class AnalysisReport(BaseModel):
     Version 2 introduces multi-artifact input and the Evidence Graph.
     """
 
-    schema_version: str = "6"
+    schema_version: str = "7"
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     input_files: list[str] = Field(description="Paths of the analyzed artifacts, as given on the CLI.")
     parser_names: list[str] = Field(description="Parsers used, one per input artifact.")
@@ -112,6 +113,12 @@ class AnalysisReport(BaseModel):
         description="Waveform Intelligence Engine conclusions: engineering observations "
         "(handshake stalls, dead clocks, stalled FSMs, unretired transactions) plus honest "
         "notes on analyses an adapter could not run.",
+    )
+    engineering: EngineeringContextView | None = Field(
+        default=None,
+        description="Engineering Context Engine output: recent changes with their "
+        "correlated failures, CI environment, ownership, impacted tests, the engineering "
+        "timeline, and the investigation projection.",
     )
     ai_summary: str | None = Field(
         default=None, description="Optional AI-generated narrative; grounded in `evidence` only."

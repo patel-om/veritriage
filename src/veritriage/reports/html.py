@@ -31,6 +31,7 @@ _HYPOTHESIS_ROLE: dict[HypothesisCategory, str] = {
 
 #: Column order for the evidence-graph drawing, by artifact type value.
 _COLUMN_ORDER = (
+    "engineering_change",
     "compile_log",
     "simulation_log",
     "assertion",

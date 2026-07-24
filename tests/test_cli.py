@@ -21,6 +21,10 @@ def _analyze(fixture_log, tmp_path, *names, extra=()):
             str(tmp_path),
             "--db",
             str(tmp_path / "regressions.db"),
+            # Tests run inside the veritriage repo; live git context would make
+            # outputs vary per commit, so CLI tests pin context off. The
+            # engineering path has dedicated tests in test_engineering.py.
+            "--no-context",
             *extra,
         ],
     )
@@ -32,7 +36,7 @@ def test_analyze_writes_json_graph_and_html(fixture_log, tmp_path):
     assert result.exit_code == 1, result.output
 
     data = json.loads((tmp_path / "analysis.json").read_text())
-    assert data["schema_version"] == "6"
+    assert data["schema_version"] == "7"
     assert data["classification"]["category"] == "testbench_failure"
     assert data["classification"]["confidence"] == 80
     assert data["classification"]["evidence"]

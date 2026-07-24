@@ -36,6 +36,7 @@ class GraphBuilder:
         _link_events_to_test_runs(self._graph)
         _link_coverage_holes_to_failures(self._graph)
         _link_waveform_observations_to_failures(self._graph)
+        _link_engineering_changes_to_failures(self._graph)
         return self._graph
 
 
@@ -132,6 +133,59 @@ def _link_waveform_observations_to_failures(graph: EvidenceGraph) -> None:
                         rationale=(
                             f"Waveform observation in scope '{matched}' matches the scope of "
                             f"this failure."
+                        ),
+                        confidence=0.6,
+                    )
+                )
+
+
+def _link_engineering_changes_to_failures(graph: EvidenceGraph) -> None:
+    """A recent change touching the failing scope corroborates the failure.
+
+    This is the "what changed?" edge: a commit whose changed files map to
+    modules (or path tokens) appearing in a failing node's module path or
+    source file gets a CORRELATES_WITH edge to that failure. Matching is
+    conservative (tokens of length 3 or more, exact substring), commits never
+    link to other engineering nodes, and the edge carries the overlapping
+    token in its rationale so the report can show exactly why the change is
+    suspected.
+    """
+    commits = [
+        n
+        for n in graph.nodes_of_type(ArtifactType.ENGINEERING_CHANGE)
+        if n.attributes.get("kind") == "commit"
+    ]
+    if not commits:
+        return
+    failing = [
+        n
+        for n in graph.failing()
+        if n.artifact_type != ArtifactType.ENGINEERING_CHANGE
+    ]
+    if not failing:
+        return
+    for commit in commits:
+        modules = [m for m in commit.attributes.get("modules", []) if len(str(m)) >= 3]
+        stems = [
+            stem
+            for path in commit.attributes.get("files", [])
+            for stem in [str(path).rsplit("/", maxsplit=1)[-1].rsplit(".", maxsplit=1)[0].lower()]
+            if len(stem) >= 3
+        ]
+        tokens = list(dict.fromkeys([*(str(m).lower() for m in modules), *stems]))
+        if not tokens:
+            continue
+        for node in failing:
+            haystack = f"{node.module or ''} {node.attributes.get('source_file') or ''}".lower()
+            matched = next((t for t in tokens if t in haystack), None)
+            if matched is not None:
+                graph.add_edge(
+                    EvidenceEdge(
+                        source_id=commit.id,
+                        target_id=node.id,
+                        relation=RelationType.CORRELATES_WITH,
+                        rationale=(
+                            f"Recent change touching '{matched}' matches the scope of this failure."
                         ),
                         confidence=0.6,
                     )

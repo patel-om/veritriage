@@ -10,7 +10,6 @@ regressions without re-running anything.
 
 from __future__ import annotations
 
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -84,29 +83,16 @@ def extract_run_context(graph: EvidenceGraph) -> tuple[str | None, str | None, d
 def capture_execution_metadata(cwd: Path | None = None) -> ExecutionMetadata:
     """Read git commit/branch/author from the working directory, best-effort.
 
-    Any git failure (not a repo, git missing) degrades to empty fields; the
-    record stays valid either way.
+    Since M7 this delegates to the engineering git provider, which is the
+    platform's only git call site (the "no git outside providers" law). Any
+    git failure (not a repo, git missing) degrades to empty fields; the
+    record stays valid either way. Imported lazily so the history package
+    carries no engineering dependency at import time.
     """
+    from veritriage.engineering.providers.git import execution_snapshot
 
-    def _git(*args: str) -> str | None:
-        try:
-            out = subprocess.run(
-                ["git", *args],
-                cwd=cwd,
-                capture_output=True,
-                text=True,
-                timeout=5,
-                check=True,
-            ).stdout.strip()
-            return out or None
-        except (OSError, subprocess.SubprocessError):
-            return None
-
-    return ExecutionMetadata(
-        git_commit=_git("rev-parse", "HEAD"),
-        branch=_git("rev-parse", "--abbrev-ref", "HEAD"),
-        author=_git("log", "-1", "--format=%an"),
-    )
+    commit, branch, author = execution_snapshot(cwd)
+    return ExecutionMetadata(git_commit=commit, branch=branch, author=author)
 
 
 def new_regression_id(signature_digest: str, now: datetime | None = None) -> str:
