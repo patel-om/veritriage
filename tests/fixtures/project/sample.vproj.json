@@ -1,0 +1,63 @@
+{
+  "schema": "1",
+  "project": { "name": "soc_top", "source_root": "." },
+  "dut": {
+    "top": "soc_top",
+    "modules": [
+      { "name": "soc_top", "source_file": "rtl/soc_top.sv" },
+      { "name": "l2_cache", "parent": "soc_top", "source_file": "rtl/l2/l2_cache.sv" },
+      { "name": "axi_monitor", "parent": "l2_cache", "source_file": "rtl/axi_monitor.sv" }
+    ],
+    "ips": [
+      { "name": "l2_cache", "kind": "cache", "owner": "team-cache", "modules": ["l2_cache", "axi_monitor"] }
+    ],
+    "interfaces": [
+      { "name": "cpu_l2", "protocol": "axi", "signals": ["arvalid", "arready", "rvalid", "rready", "rdata"] }
+    ],
+    "clocks": [ { "name": "clk_core", "roots": ["soc_top"] } ],
+    "resets": [ { "name": "rst_n", "roots": ["soc_top"] } ],
+    "address_map": [
+      { "name": "L2_REGS", "base": "0x40000000", "size": "0x1000", "target_ip": "l2_cache" }
+    ]
+  },
+  "env": {
+    "components": [
+      { "name": "env", "type": "env", "parent": "uvm_test_top" },
+      { "name": "axi_agent", "type": "agent", "parent": "env" },
+      { "name": "axi_mon", "type": "monitor", "parent": "env.axi_agent", "interface": "cpu_l2" },
+      { "name": "scb", "type": "scoreboard", "parent": "env" },
+      { "name": "pred", "type": "predictor", "parent": "env" }
+    ],
+    "ral": { "name": "l2_ral" },
+    "vips": [ { "name": "axi_vip", "protocol": "axi", "interface": "cpu_l2" } ]
+  },
+  "testbench": {
+    "tests": ["l2_smoke", "l2_stress"],
+    "sequences": ["axi_rand_seq"],
+    "plusargs": ["UVM_TIMEOUT", "UVM_TESTNAME"]
+  },
+  "sim_infra": {
+    "simulator": { "vendor": "vcs", "version": "2023.03" },
+    "waveform_formats": ["fsdb"],
+    "log_sources": [
+      { "pattern": "axi_vip", "origin": "vip" },
+      { "pattern": "uvm_test_top.env", "origin": "testbench" },
+      { "pattern": "l2_cache", "origin": "rtl" }
+    ],
+    "generated_artifacts": [ { "glob": "csrc/**", "ignorable": true } ]
+  },
+  "lifecycle": {
+    "phases": [
+      { "name": "compile", "markers": ["Compiling", "vlogan", "elaboration", "Parsing design", "Error-", "syntax error", "Undeclared identifier"] },
+      { "name": "build", "markers": ["build_phase", "Building"] },
+      { "name": "connect", "markers": ["connect_phase"] },
+      { "name": "reset", "markers": ["Applying reset", "reset done", "rst_n"] },
+      { "name": "traffic", "markers": ["starting sequence", "seq started", "sending transaction"] },
+      { "name": "check", "markers": ["scoreboard", "compare", "UVM_ERROR"] },
+      { "name": "report", "markers": ["UVM_INFO.*Report", "Summary", "TEST DONE"] }
+    ]
+  },
+  "engineering": {
+    "owners": [ { "scope": "l2_cache", "owner": "team-cache" } ]
+  }
+}

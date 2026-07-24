@@ -38,6 +38,7 @@ _SIGNAL_SUBSYSTEM = (
     ("knowledge:", "knowledge"),
     ("waveform:", "waveform"),
     ("engineering:", "engineering"),
+    ("project:", "project"),
 )
 
 #: Recommendation-rationale markers -> the subsystem that appended them.

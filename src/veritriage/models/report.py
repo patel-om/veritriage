@@ -12,6 +12,7 @@ from veritriage.models.failure import AssertionFailure, Failure, FailureCategory
 from veritriage.models.engineering import EngineeringContextView
 from veritriage.models.history import HistoricalContext
 from veritriage.models.knowledge import KnowledgeContext
+from veritriage.models.project import ProjectContext
 from veritriage.models.reasoning import ReasoningResult
 from veritriage.models.waveform import WaveformContext
 
@@ -80,7 +81,7 @@ class AnalysisReport(BaseModel):
     Version 2 introduces multi-artifact input and the Evidence Graph.
     """
 
-    schema_version: str = "7"
+    schema_version: str = "8"
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     input_files: list[str] = Field(description="Paths of the analyzed artifacts, as given on the CLI.")
     parser_names: list[str] = Field(description="Parsers used, one per input artifact.")
@@ -119,6 +120,14 @@ class AnalysisReport(BaseModel):
         description="Engineering Context Engine output: recent changes with their "
         "correlated failures, CI environment, ownership, impacted tests, the engineering "
         "timeline, and the investigation projection.",
+    )
+    project: ProjectContext | None = Field(
+        default=None,
+        description="Verification Project Intelligence output: the structural understanding "
+        "of the project the run belongs to (DUT topology, identified protocols, UVM "
+        "environment), plus the run's projection onto the expected simulation lifecycle and "
+        "the origin breakdown of its failing evidence. Present only when a project model is "
+        "supplied; the Evidence Graph is never affected.",
     )
     ai_summary: str | None = Field(
         default=None, description="Optional AI-generated narrative; grounded in `evidence` only."

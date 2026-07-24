@@ -459,6 +459,69 @@
   </section>
   {% endif %}
 
+  {% if report.project %}
+  {% set proj = report.project %}
+  <section>
+    <h2>Project Intelligence</h2>
+    <p class="lead">
+      Structural understanding of
+      {% if proj.dut_top %}<code>{{ proj.dut_top }}</code>{% else %}this project{% endif %}
+      {% if proj.simulator %}(simulator {{ proj.simulator }}){% endif %},
+      built before this failure was analyzed. The project model is a lens over the
+      evidence; it never enters the Evidence Graph.
+      {% if proj.identified_protocols %}
+      Identified protocols:
+      {% for p in proj.identified_protocols %}<code>{{ p.name }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.
+      {% endif %}
+    </p>
+
+    {% if proj.lifecycle %}
+    {% set lc = proj.lifecycle %}
+    <div class="card hyp-card">
+      <p style="margin: 0 0 12px; color: var(--ink-2);">
+        <b style="color: var(--ink);">Expected simulation lifecycle.</b>
+        Evidence projected onto the project's expected flow
+        {% if lc.stopped_at %} shows progress stopped before <b style="color: var(--ink);">{{ lc.stopped_at }}</b>{% if lc.last_reached %} (reached <b style="color: var(--ink);">{{ lc.last_reached }}</b>){% endif %}.{% else %} shows the full lifecycle completed.{% endif %}
+      </p>
+      <div class="kseq">
+        {% for s in lc.phases %}
+        <div class="kstate {{ 'reached' if s.reached else 'unreached' }}{{ ' stall' if s.state == lc.stopped_at }}">
+          <span class="kdot"></span>{{ s.state }}
+          {% if s.reached and s.evidence_ids %}<span class="kev">{% for id in s.evidence_ids[:2] %}<code>{{ id }}</code>{% endfor %}</span>{% endif %}
+        </div>
+        {% if not loop.last %}<div class="karrow">&#8594;</div>{% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if proj.log_origins %}
+    <div class="card">
+      <p class="ev-refs" style="margin: 0 0 8px;"><b>Failing evidence by origin</b> (log intelligence)</p>
+      <p style="margin: 0; color: var(--ink-2); font-size: 13.5px;">
+        {% for origin, count in proj.log_origins.items() %}
+        <span class="chip"><span class="dot {{ 'muted' if origin in ('rtl', 'unknown') else 'warning' }}"></span>{{ origin }} &times; {{ count }}</span>
+        {% endfor %}
+      </p>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <p class="ev-refs" style="margin: 0 0 8px;"><b>DUT and environment</b></p>
+      <p style="margin: 0; color: var(--ink-2); font-size: 13.5px;">
+        {{ proj.dut.modules | length }} design module{{ "s" if proj.dut.modules | length != 1 }},
+        {{ proj.dut.interfaces | length }} interface{{ "s" if proj.dut.interfaces | length != 1 }}
+        {% if proj.dut.ip_blocks %}({% for ip in proj.dut.ip_blocks %}<code>{{ ip }}</code>{% if not loop.last %}, {% endif %}{% endfor %}){% endif %},
+        {{ proj.env.components | length }} UVM component{{ "s" if proj.env.components | length != 1 }}
+        ({{ proj.env.agents }} agent{{ "s" if proj.env.agents != 1 }},
+        {{ proj.env.monitors }} monitor{{ "s" if proj.env.monitors != 1 }},
+        {{ proj.env.scoreboards }} scoreboard{{ "s" if proj.env.scoreboards != 1 }}).
+      </p>
+      <p class="ev-refs" style="margin-top: 8px;"><b>Project ID:</b> <code>{{ proj.project_id }}</code></p>
+    </div>
+  </section>
+  {% endif %}
+
   {% if report.waveform %}
   <section>
     <h2>Waveform Intelligence</h2>

@@ -71,18 +71,32 @@ def analyze(
     context_root: Path = typer.Option(
         Path("."), "--context-root", help="Directory the context providers inspect."
     ),
+    project: bool = typer.Option(
+        True,
+        "--project/--no-project",
+        help="Read a project model (*.vproj.json under the context root) for "
+        "project-aware reasoning and report context; degrades silently if absent.",
+    ),
     db: Path = typer.Option(
         DEFAULT_DB, "--db", help="Regression database file (created on first use)."
     ),
 ) -> None:
     """Analyze verification artifacts into an evidence graph and reports."""
     engineering = _gather_context(context_root) if context else None
+    services = WorkspaceServices(db=db)
+    project_model = None
+    if project:
+        model = services.load_project_model(context_root) or services.build_project_model(
+            context_root
+        )
+        project_model = model if not model.is_empty else None
     try:
-        session = WorkspaceServices(db=db).investigate(
+        session = services.investigate(
             artifacts,
             parser_name=parser,
             engineering=engineering,
             record_history=history,
+            project=project_model,
         )
     except (FileNotFoundError, ValueError) as exc:
         _err.print(f"[red]error:[/red] {escape(str(exc))}")
@@ -490,6 +504,179 @@ def context(
         )
     for entry in gathered.ownership:
         console.print(f"[dim]owner:[/dim] {escape(entry.scope)} -> {escape(entry.owner)} ({entry.role})")
+
+
+@app.command()
+def project(
+    root: Path = typer.Argument(
+        Path("."), help="Project root (or a *.vproj.json file) to understand."
+    ),
+) -> None:
+    """Build and print the project model: what this verification project is."""
+    from veritriage.project import available_project_providers
+
+    providers_table = Table(title="Project providers")
+    for column in ("Provider", "Source", "Available here", "Capabilities"):
+        providers_table.add_column(column)
+    for name, cls in sorted(available_project_providers().items()):
+        providers_table.add_row(
+            name,
+            cls.source,
+            "yes" if cls.available(root) else "no",
+            ", ".join(sorted(c.value for c in cls.capabilities)) or "-",
+        )
+    console.print(providers_table)
+
+    services = WorkspaceServices()
+    model = services.build_project_model(root)
+    if model.is_empty:
+        console.print("[dim]no project model available at this root[/dim]")
+        return
+    summary = services.project_summary(model)
+    console.print(
+        f"\n[bold]{escape(summary.dut_top or 'project')}[/bold]  "
+        f"[dim]{summary.project_id}[/dim]"
+        + (f"  |  simulator {summary.simulator}" if summary.simulator else "")
+    )
+    console.print(
+        f"{summary.module_count} modules  |  {summary.interface_count} interfaces  |  "
+        f"{summary.uvm_component_count} UVM components  |  "
+        f"{summary.lifecycle_phase_count} lifecycle phases"
+    )
+    if summary.identified_protocols:
+        console.print(f"protocols: {', '.join(summary.identified_protocols)}")
+
+    interfaces = Table(title="Interfaces")
+    for column in ("Interface", "Protocol", "Signals"):
+        interfaces.add_column(column)
+    for iface in model.dut.interfaces:
+        interfaces.add_row(iface.name, iface.protocol_id or "-", str(len(iface.signals)))
+    console.print(interfaces)
+
+    topo = Table(title="UVM topology")
+    for column in ("Component", "Type", "Parent", "Interface"):
+        topo.add_column(column)
+    for component in model.env.components:
+        topo.add_row(component.name, component.type, component.parent or "-", component.interface or "-")
+    console.print(topo)
+
+
+@app.command()
+def explain(
+    log: Path = typer.Argument(..., help="A log to classify by origin and lifecycle phase."),
+    root: Path = typer.Option(
+        Path("."), "--root", help="Project root for the model used to classify."
+    ),
+) -> None:
+    """Log intelligence: classify each log line by origin and lifecycle phase."""
+    services = WorkspaceServices()
+    model = services.load_project_model(root) or services.build_project_model(root)
+    model = model if not model.is_empty else None
+    try:
+        annotations = services.explain_log(log, model)
+    except (FileNotFoundError, ValueError) as exc:
+        _err.print(f"[red]error:[/red] {escape(str(exc))}")
+        raise typer.Exit(code=2)
+    table = Table(title=f"Log intelligence: {log.name}")
+    for column in ("Line", "Origin", "Phase", "Message"):
+        table.add_column(column)
+    for ann in annotations:
+        table.add_row(
+            str(ann.line_number or "-"),
+            ann.origin,
+            ann.phase or "-",
+            escape((ann.snippet or "")[:80]),
+        )
+    console.print(table)
+
+
+def _load_project_model(root: Path):
+    """Build (or load) a project model, or exit cleanly when none is available."""
+    services = WorkspaceServices()
+    model = services.load_project_model(root) or services.build_project_model(root)
+    if model.is_empty:
+        console.print("[dim]no project model available at this root[/dim]")
+        raise typer.Exit(code=0)
+    return model
+
+
+@app.command()
+def dut(
+    root: Path = typer.Argument(Path("."), help="Project root (or *.vproj.json) to inspect."),
+) -> None:
+    """Focused view of the DUT: modules, interfaces, clocks, resets, address map."""
+    model = _load_project_model(root)
+    console.print(f"[bold]{escape(model.dut.top or 'DUT')}[/bold]")
+    ifaces = Table(title="Interfaces")
+    for column in ("Interface", "Protocol", "Signals"):
+        ifaces.add_column(column)
+    for iface in model.dut.interfaces:
+        ifaces.add_row(iface.name, iface.protocol_id or "-", ", ".join(iface.signals) or "-")
+    console.print(ifaces)
+    domains = Table(title="Clock / reset domains")
+    for column in ("Kind", "Name", "Roots"):
+        domains.add_column(column)
+    for clock in model.dut.clocks:
+        domains.add_row("clock", clock.name, ", ".join(clock.roots) or "-")
+    for reset in model.dut.resets:
+        domains.add_row("reset", reset.name, ", ".join(reset.roots) or "-")
+    console.print(domains)
+    if model.dut.address_map:
+        amap = Table(title="Address map")
+        for column in ("Region", "Base", "Size", "Target IP"):
+            amap.add_column(column)
+        for region in model.dut.address_map:
+            amap.add_row(region.name, region.base or "-", region.size or "-", region.target_ip or "-")
+        console.print(amap)
+
+
+@app.command()
+def env(
+    root: Path = typer.Argument(Path("."), help="Project root (or *.vproj.json) to inspect."),
+) -> None:
+    """Focused view of the verification environment: UVM topology, RAL, VIPs."""
+    model = _load_project_model(root)
+    topo = Table(title="UVM topology")
+    for column in ("Component", "Type", "Parent", "Interface"):
+        topo.add_column(column)
+    for component in model.env.components:
+        topo.add_row(component.name, component.type, component.parent or "-", component.interface or "-")
+    console.print(topo)
+    if model.env.ral:
+        console.print(f"RAL: [bold]{escape(model.env.ral)}[/bold]")
+    for vip in model.env.vips:
+        console.print(
+            f"[dim]VIP:[/dim] {escape(vip.name)}"
+            + (f" ({vip.protocol_id})" if vip.protocol_id else "")
+            + (f" on {vip.interface}" if vip.interface else "")
+        )
+
+
+@app.command()
+def flow(
+    root: Path = typer.Argument(Path("."), help="Project root (or *.vproj.json) to inspect."),
+) -> None:
+    """Focused view of the simulation flow: simulator, lifecycle, artifacts."""
+    model = _load_project_model(root)
+    sim = model.sim_infra
+    console.print(
+        "[bold]Simulator:[/bold] "
+        + (f"{sim.simulator_vendor}" if sim.simulator_vendor else "unknown")
+        + (f" {sim.simulator_version}" if sim.simulator_version else "")
+        + (f"  |  waveforms: {', '.join(sim.waveform_formats)}" if sim.waveform_formats else "")
+    )
+    if model.lifecycle.phases:
+        console.print(
+            "[bold]Expected lifecycle:[/bold] "
+            + " -> ".join(p.name for p in model.lifecycle.phases)
+        )
+    if sim.log_sources:
+        sources = Table(title="Log sources")
+        for column in ("Pattern", "Origin"):
+            sources.add_column(column)
+        for source in sim.log_sources:
+            sources.add_row(source.pattern, source.origin)
+        console.print(sources)
 
 
 @app.command()

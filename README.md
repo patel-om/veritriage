@@ -101,6 +101,16 @@ veritriage investigate simulation.log                      # context + timeline 
 veritriage impact                                          # tests likely hit by current changes (from history)
 veritriage context                                         # what the providers see here
 
+# Verification Project Intelligence: understand the project BEFORE the failure.
+# A cached, content-addressed Project Model (DUT hierarchy, interfaces and
+# identified protocols, UVM topology, expected simulation lifecycle, log profile)
+# built from a *.vproj.json manifest. It never enters the Evidence Graph; it is a
+# lens over it, reaching reasoning as ordinary evidence-cited signals.
+veritriage project .                                       # build + print the project model
+veritriage explain simulation.log                          # classify each line by origin + lifecycle phase
+veritriage analyze simulation.log --project -o out/        # project-aware analysis (default on)
+veritriage analyze simulation.log --no-project -o out/     # opt out
+
 # Workspace and MCP: VeriTriage as an external investigation service.
 # `veritriage mcp` serves 12 investigation tools over stdio, so Claude Code,
 # Cursor, or any MCP host can analyze regressions, walk evidence, search the

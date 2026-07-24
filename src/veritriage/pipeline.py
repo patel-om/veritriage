@@ -30,6 +30,7 @@ from veritriage.knowledge import KnowledgeEngine, knowledge_reasoning_rules
 from veritriage.models import AnalysisReport, LogSummary, Severity
 from veritriage.parsers import find_parser, get_parser
 from veritriage.parsers.base import ParseResult
+from veritriage.project import ProjectModel, build_project_view, project_reasoning_rules
 from veritriage.reasoning import ReasoningEngine
 from veritriage.reasoning.signals import default_reasoning_rules
 from veritriage.rules import RuleEngine
@@ -50,6 +51,7 @@ def analyze(
     parser_name: str | None = None,
     engine: RuleEngine | None = None,
     engineering: EngineeringContext | None = None,
+    project: ProjectModel | None = None,
 ) -> AnalysisOutcome:
     """Analyze one or more artifacts and return the report plus the graph.
 
@@ -65,6 +67,11 @@ def analyze(
             never calls a provider itself, so this function stays a pure
             function of its inputs. Context manifests passed as artifact
             files need no parameter at all.
+        project: Already-built Project Model (built by the CLI from the project
+            provider registry). When supplied, project-aware reasoning rules
+            join the rule set and a ProjectContext is attached to the report;
+            the Evidence Graph is never affected. The pipeline never builds a
+            model itself, so it stays a pure function of its inputs.
 
     Raises:
         FileNotFoundError: If any path does not exist.
@@ -105,12 +112,16 @@ def analyze(
     knowledge = knowledge_engine.analyze(graph)
     # Waveform observations and engineering changes reach reasoning through
     # the same rule interface as knowledge: ordinary evidence-cited signals.
+    # Project intelligence, when supplied, joins reasoning through the same rule
+    # interface as every other subsystem: ordinary evidence-cited signals. The
+    # project model never enters the Evidence Graph; it only interprets it.
     reasoning = ReasoningEngine(
         rules=[
             *default_reasoning_rules(),
             *knowledge_reasoning_rules(knowledge_engine.knowledge),
             *waveform_reasoning_rules(),
             *engineering_reasoning_rules(),
+            *(project_reasoning_rules(project) if project is not None else []),
         ]
     ).reason(graph)
     waveform = build_waveform_context(results)
@@ -137,6 +148,10 @@ def analyze(
     # report (correlations, hypotheses) and only append, never rewrite.
     report.engineering = build_engineering_view(context, graph, report)
     augment_with_ownership(report, graph, context)
+    # Project context is a pure lens over the finished report and graph; it
+    # reads correlations and hypotheses and only attaches structure.
+    if project is not None:
+        report.project = build_project_view(project, graph, report)
     return AnalysisOutcome(report=report, graph=graph)
 
 

@@ -9,7 +9,7 @@ what's next" record.
 
 Repo: https://github.com/patel-om/veritriage (public, Apache-2.0)
 Local path: `/Users/ompatel/Documents/veritriage`
-Current version: **1.0.0**
+Current version: **1.7.0**
 Portfolio integration: card + sample artifacts in
 `/Users/ompatel/Documents/Om Portfolio` (`index.html`,
 `veritriage-sample-report.html`, `veritriage-sample-dashboard.html`)
@@ -490,6 +490,55 @@ clauses, and native formal ingestion). The knowledge engine is elite in
 breadth (42 packs / six domains) and expressiveness (presence, numeric, and
 omission clauses, plus native formal artifacts).
 
+### Milestone 11 (v1.7.0) - Verification Project Intelligence (manifest-first)
+
+A new layer of intelligence, not another parser/rule/pack: VeriTriage now
+understands a verification project *before* any failure is analyzed. New
+`project/` package building a durable, frozen, content-addressed **Project
+Model** (the verification equivalent of an IDE index): DUT hierarchy,
+interfaces with identified protocols, clock/reset domains, address map; UVM
+topology (agents/monitors/scoreboards/predictors); testbench; sim
+infrastructure; the expected **SimulationLifecycle**; and a **LogProfile**.
+Structured exactly like M6/M7: **providers** are the only source-aware code
+(`providers/base.py` `ProjectProvider` + `ProjectCapability`, `registry.py`
+`@register_project_provider` + `collect_project`, `providers/manifest.py`
+`*.vproj.json` canonical manifest that ships first), and everything downstream
+is source-agnostic: `model.py` (frozen models + merge + `make_project_id` +
+`seal_project` fingerprint), `insights.py` (`@register_insight`;
+protocol identification reuses Knowledge Pack markers, so no protocol logic
+lives in the core), `lifecycle.py` (pure projection of the Evidence Graph onto
+the expected flow, reusing the M5 state-projection idea), `logmap.py` (log
+intelligence: classify each line by origin rtl/testbench/vip/simulator/infra;
+reads artifacts only through the parser registry), `inference.py`
+(`project_reasoning_rules` + `build_project_view`), `persistence.py`
+(`ProjectStore` caches one model per root under `.veritriage/project/`).
+
+**The load-bearing decision:** the Project Model is a *separate*, persistent,
+content-addressed model (parallel to the Knowledge Graph and Regression DB)
+that **never enters the Evidence Graph**; it is a lens over it. It reaches
+reasoning through the standard `ReasoningRule` interface (three rules:
+`project:log-origin` shifts blame off the DUT when failing evidence originates
+in VIP/infra; `project:lifecycle` favors build/testbench when the run stopped
+before traffic; `project:scope-ownership` sharpens RTL when a scope resolves to
+a DUT IP), each citing *existing* evidence node IDs, and reaches the report as
+a new `AnalysisReport.project` field (schema `7` -> `8`). Additive edits:
+`analyze(project=...)` optional keyword (CLI builds/caches the model, pipeline
+stays pure), one `_SIGNAL_SUBSYSTEM` prefix in the orchestrator, WorkspaceServices
+gains `build_project_model`/`load_project_model`/`project_summary`/`project_context`/
+`explain_log` and `investigate(project=...)`, a report Project Intelligence
+section, CLI `project` and `explain` commands + `--project/--no-project` on
+`analyze`, 4 MCP tools (analyze_project, get_project_model, get_project_context,
+explain_log). No `ArtifactType`, no `RelationType`, no core engine changed.
+Permanent law (test-pinned): no component beyond a `ProjectProvider` reads
+source; the model never retains source text. Crown-jewel
+`test_new_project_source_needs_only_a_provider` (a throwaway provider defined in
+the test reaches the model, a reasoning signal, and the report with zero core
+changes). 21 new tests (398 total). Design doc: `docs/PROJECT_INTELLIGENCE.md`
+(approved before implementation). Deferred to M11.x: `rtl`/`uvm`/`build`/
+`regression` source providers, richer insights (bus/CDC topology), the optional
+AI project brief. Also fixed on the way: the stale `__version__` (1.0.0 ->
+1.7.0) and this file's section-3 header drift.
+
 ---
 
 ## 3. Current architecture map
@@ -556,46 +605,60 @@ src/veritriage/
   analytics/         M4: RegressionAnalytics (aggregations) + cluster_regressions.
   feedback/          M4: FeedbackRecord + FeedbackSink protocol (design only).
   dashboard/         M4: DashboardGenerator (self-contained dashboard.html).
+  project/           M11: model.py (frozen ProjectModel + merge + fingerprint),
+                     providers/ (base+registry+manifest; the ONLY source-aware code,
+                     *.vproj.json ships first), insights.py (protocol ID via knowledge
+                     markers), lifecycle.py (lifecycle projection), logmap.py (log
+                     intelligence via the parser registry), inference.py
+                     (project_reasoning_rules + build_project_view), persistence.py
+                     (ProjectStore). A separate, cached model that NEVER enters the
+                     Evidence Graph; a lens over it. Reaches reasoning as injected
+                     rules; nothing in the core imports it (guard-enforced).
   reports/           HTML report generator (Jinja2, self-contained, light/dark).
   cli/main.py        Typer app: analyze, parsers, knowledge, waveform, context,
-                     investigate, impact, mcp, sessions, run, profiles, bundle
-                     (export/import/validate/compare), review, annotate, dashboard,
-                     history, feedback, version. Since M8 a WorkspaceServices client
-                     (never imports veritriage.pipeline); M9 run/profiles drive the
-                     orchestrator; M10 bundle/review/annotate drive collaboration.
+                     project, dut, env, flow, explain, investigate, impact, mcp, sessions, run,
+                     profiles, bundle (export/import/validate/compare), review,
+                     annotate, dashboard, history, feedback, version. Since M8 a
+                     WorkspaceServices client (never imports veritriage.pipeline); M9
+                     run/profiles drive the orchestrator; M10 bundle/review/annotate
+                     drive collaboration; M11 project/explain drive project intelligence.
   pipeline.py        analyze(): parse -> graph -> classify -> knowledge -> reason.
                      Waveform artifacts and context manifests parse like any other
-                     (registered Parsers); waveform + engineering reasoning rules
-                     join the rule set beside knowledge rules; build_waveform_context
-                     and build_engineering_view fill the report; ownership augment
-                     appends last. analyze(engineering=...) accepts CLI-collected
-                     context so the library stays pure, no provider or storage I/O
-                     (context gathering and history recording are CLI decisions).
+                     (registered Parsers); waveform + engineering + project reasoning
+                     rules join the rule set beside knowledge rules;
+                     build_waveform_context, build_engineering_view, and (when a model
+                     is supplied) build_project_view fill the report; ownership augment
+                     appends last. analyze(engineering=..., project=...) accepts
+                     CLI-collected context/model so the library stays pure, no provider
+                     or storage I/O (context/model gathering and history recording are
+                     CLI decisions).
 ```
 
 **Pipeline call order** (`pipeline.py::analyze`): parsers emit graph
 fragments → `GraphBuilder` merges + correlates → `RuleEngine.classify()` →
 `KnowledgeEngine.analyze()` computes the `KnowledgeContext` →
-`ReasoningEngine(rules=[*default_reasoning_rules(), *knowledge_reasoning_rules(), *waveform_reasoning_rules(), *engineering_reasoning_rules()])`
+`ReasoningEngine(rules=[*default_reasoning_rules(), *knowledge_reasoning_rules(), *waveform_reasoning_rules(), *engineering_reasoning_rules(), *project_reasoning_rules(project) if project else []])`
 runs selection/signals/hypotheses/ranking/recommendations, with knowledge
-patterns, waveform observations, and engineering changes all injected as
-ordinary rules → `AnalysisReport` assembled (`schema_version = "7"`,
-`waveform` field via `build_waveform_context` and `engineering` field via
-`build_engineering_view`). History recording (`HistoryEngine.record` +
+patterns, waveform observations, engineering changes, and (when a model is
+supplied) project intelligence all injected as ordinary rules → `AnalysisReport`
+assembled (`schema_version = "8"`, `waveform` field via `build_waveform_context`,
+`engineering` field via `build_engineering_view`, `project` field via
+`build_project_view`). History recording (`HistoryEngine.record` +
 `.augment`) happens in the CLI, strictly after `analyze()` returns, so the
 library function itself never touches the filesystem beyond reading the
 input artifacts.
 
 **Report schema version history:** v1 (M1) → v2 adds Evidence Graph (M2) →
 v3 adds `reasoning` (M3) → v4 adds `history` (M4) → v5 adds `knowledge`
-(M5) → v6 adds `waveform` (M6) → v7 adds `engineering` (M7). Bump on any
-breaking field change; tests assert the current value (`test_cli.py`).
+(M5) → v6 adds `waveform` (M6) → v7 adds `engineering` (M7) → v8 adds
+`project` (M11). Bump on any breaking field change; tests assert the current
+value (`test_cli.py`).
 
-**Current test count: 278**, across `tests/test_*.py`: parsers, rules,
+**Current test count: 398**, across `tests/test_*.py`: parsers, rules,
 graph, artifact parsers, models, report, CLI, AI boundary, reasoning,
 history, analytics, knowledge, waveform, engineering, workspace/MCP,
-orchestrator, collaboration. Run with `.venv/bin/python -m pytest -q` from
-the repo root.
+orchestrator, collaboration, project. Run with `.venv/bin/python -m pytest -q`
+from the repo root.
 
 ---
 

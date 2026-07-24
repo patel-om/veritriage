@@ -16,9 +16,13 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from veritriage.models import LogAnnotationView, ProjectContext, ProjectSummary
+    from veritriage.project import ProjectModel
 
 from veritriage.engineering import EngineeringContext
 from veritriage.engineering.timeline import build_timeline
@@ -76,9 +80,17 @@ class ComparisonView(BaseModel):
 class WorkspaceServices:
     """The platform's public service layer. One instance per workspace."""
 
-    def __init__(self, session_root: Path | None = None, db: Path | None = None) -> None:
+    def __init__(
+        self,
+        session_root: Path | None = None,
+        db: Path | None = None,
+        project_root: Path | None = None,
+    ) -> None:
+        from veritriage.project import ProjectStore
+
         self._store = SessionStore(session_root)
         self._db = db
+        self._project_store = ProjectStore(project_root)
 
     # --- Investigations ----------------------------------------------------
 
@@ -129,6 +141,7 @@ class WorkspaceServices:
         parser_name: str | None = None,
         record_history: bool = False,
         now: datetime | None = None,
+        project: "ProjectModel | None" = None,
     ) -> InvestigationSession:
         """Run one full analysis and wrap it into an immutable session.
 
@@ -138,7 +151,12 @@ class WorkspaceServices:
         stays immutable from birth. Recording is off by default: MCP and
         library callers get a read-only posture unless they opt in.
         """
-        outcome = analyze(list(paths), parser_name=parser_name, engineering=engineering)
+        outcome = analyze(
+            list(paths),
+            parser_name=parser_name,
+            engineering=engineering,
+            project=project,
+        )
         if record_history and self._db is not None:
             from veritriage.history import HistoryEngine, capture_execution_metadata
             from veritriage.storage import RegressionStore
@@ -150,6 +168,56 @@ class WorkspaceServices:
                 )
                 engine.augment(outcome, context)
         return make_session(outcome.report, outcome.graph, now=now)
+
+    # --- Project intelligence (M11) ----------------------------------------
+    #
+    # The Project Model is built from the provider registry, cached, and reused
+    # by investigations. Like collect_context it is gathered here (a workspace
+    # decision), not inside the pure pipeline, and it never enters the graph.
+
+    def build_project_model(self, root: Path) -> "ProjectModel":
+        """Build and cache the Project Model for a source root."""
+        from veritriage.project import build_project_model
+
+        model = build_project_model(root)
+        if not model.is_empty:
+            self._project_store.save(model)
+        return model
+
+    def load_project_model(self, root: Path) -> "ProjectModel | None":
+        """The cached model for a root (None if never built)."""
+        return self._project_store.load_for_root(root)
+
+    def project_summary(self, model: "ProjectModel") -> "ProjectSummary":
+        """The bounded 'what is this project?' answer."""
+        from veritriage.models import ProjectSummary
+
+        return ProjectSummary(
+            project_id=model.project_id,
+            source_root=model.source_root,
+            built_at=model.built_at.isoformat(),
+            dut_top=model.dut.top,
+            simulator=model.sim_infra.simulator_vendor,
+            module_count=len(model.dut.modules),
+            interface_count=len(model.dut.interfaces),
+            identified_protocols=sorted(
+                {i.protocol_id for i in model.dut.interfaces if i.protocol_id}
+            ),
+            uvm_component_count=len(model.env.components),
+            lifecycle_phase_count=len(model.lifecycle.phases),
+        )
+
+    def project_context(self, session: InvestigationSession) -> "ProjectContext | None":
+        """The project context attached to a session's report, if any."""
+        return session.report.project
+
+    def explain_log(
+        self, path: Path, model: "ProjectModel | None" = None
+    ) -> "list[LogAnnotationView]":
+        """Classify a log's lines by origin and lifecycle phase (log intelligence)."""
+        from veritriage.project import explain_log
+
+        return explain_log(path, model)
 
     def save(self, session: InvestigationSession) -> Path:
         return self._store.save(session)

@@ -487,3 +487,82 @@ def _list_reviews(services: WorkspaceServices, arguments: dict[str, Any]) -> Any
 )
 def _list_annotations(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
     return services.collaboration_view(Path(str(arguments["path"])))["annotations"]
+
+
+# --- Project intelligence tools (M11) ---------------------------------------
+
+
+@register_tool(
+    "analyze_project",
+    "Build the Verification Project Model for a project root (or *.vproj.json "
+    "manifest): DUT hierarchy, interfaces and identified protocols, UVM topology, "
+    "simulation lifecycle, and sim infrastructure. Understand the project before "
+    "analyzing any failure. Returns the project summary.",
+    {
+        "type": "object",
+        "properties": {
+            "root": {"type": "string", "description": "Project root or manifest path."}
+        },
+        "required": ["root"],
+    },
+)
+def _analyze_project(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    model = services.build_project_model(Path(str(arguments["root"])))
+    return services.project_summary(model)
+
+
+@register_tool(
+    "get_project_model",
+    "The full Verification Project Model for a root: DUT modules/interfaces/ "
+    "protocols, UVM components, expected simulation lifecycle, and sim infra. "
+    "Built once and cached; a lens over evidence, never part of the Evidence Graph.",
+    {
+        "type": "object",
+        "properties": {
+            "root": {"type": "string", "description": "Project root or manifest path."}
+        },
+        "required": ["root"],
+    },
+)
+def _get_project_model(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    root = Path(str(arguments["root"]))
+    return services.load_project_model(root) or services.build_project_model(root)
+
+
+@register_tool(
+    "get_project_context",
+    "The project context attached to an investigation session: identified "
+    "protocols, DUT and UVM topology, the run's projection onto the expected "
+    "simulation lifecycle, and the origin breakdown of its failing evidence.",
+    _SESSION_ARG,
+)
+def _get_project_context(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    session = _require_session(services, arguments)
+    context = services.project_context(session)
+    if context is None:
+        raise KeyError(f"Session {session.session_id!r} carries no project context")
+    return context
+
+
+@register_tool(
+    "explain_log",
+    "Log intelligence: classify each line of a log by origin (rtl / testbench / "
+    "vip / simulator / infrastructure) and expected lifecycle phase, using the "
+    "project's log profile. Runs before failure analysis.",
+    {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Log file to classify."},
+            "root": {
+                "type": "string",
+                "description": "Project root for the model used to classify (default '.').",
+            },
+        },
+        "required": ["path"],
+    },
+)
+def _explain_log(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    root = Path(str(arguments.get("root", ".")))
+    model = services.load_project_model(root) or services.build_project_model(root)
+    model = model if not model.is_empty else None
+    return services.explain_log(Path(str(arguments["path"])), model)

@@ -41,6 +41,7 @@ _CORE_PACKAGES = (
     "knowledge",
     "waveform",
     "engineering",
+    "project",
     "history",
     "signatures",
     "similarity",
