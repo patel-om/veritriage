@@ -271,3 +271,103 @@ def _get_timeline(services: WorkspaceServices, arguments: dict[str, Any]) -> Any
 def _search_evidence(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
     session = _require_session(services, arguments)
     return services.search(session, str(arguments["query"]))
+
+
+# --- Orchestration tools (M9) -----------------------------------------------
+
+
+@register_tool(
+    "run_investigation",
+    "Run one orchestrated investigation profile (fast-triage, "
+    "full-investigation, regression-analysis, protocol-debug, "
+    "waveform-focused, infrastructure-review, engineering-review) over "
+    "artifact paths. Returns the investigation summary; the persisted session "
+    "carries the plan and the full execution trace.",
+    {
+        "type": "object",
+        "properties": {
+            "profile": {"type": "string", "description": "Registered profile name."},
+            "paths": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Artifact file paths to investigate together.",
+            },
+            "context_root": {
+                "type": "string",
+                "description": "Directory the context providers inspect (default '.').",
+            },
+        },
+        "required": ["profile", "paths"],
+    },
+)
+def _run_investigation(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    from veritriage.orchestrator import run_profile
+
+    session = run_profile(
+        services,
+        str(arguments["profile"]),
+        [Path(p) for p in arguments["paths"]],
+        context_root=Path(str(arguments.get("context_root", "."))),
+    )
+    return services.summary(session)
+
+
+@register_tool(
+    "list_profiles",
+    "The registered investigation profiles: name, description, and the "
+    "ordered steps each one runs.",
+    {"type": "object", "properties": {}},
+)
+def _list_profiles(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    from veritriage.orchestrator import available_profiles
+
+    return [
+        {
+            "name": name,
+            "description": profile.description,
+            "steps": [s.id for s in profile.steps],
+        }
+        for name, profile in sorted(available_profiles().items())
+    ]
+
+
+@register_tool(
+    "get_investigation_plan",
+    "The immutable investigation plan an orchestrated session ran: steps, "
+    "dependencies, and declared artifact flow.",
+    _SESSION_ARG,
+)
+def _get_plan(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    session = _require_session(services, arguments)
+    if session.plan is None:
+        raise KeyError(f"Session {session.session_id!r} was not produced by the orchestrator")
+    return session.plan
+
+
+@register_tool(
+    "get_investigation_trace",
+    "The complete execution trace of an orchestrated session: per-step "
+    "status, timing, artifact flow, and per-subsystem attribution.",
+    _SESSION_ARG,
+)
+def _get_trace(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    session = _require_session(services, arguments)
+    if session.trace is None:
+        raise KeyError(f"Session {session.session_id!r} was not produced by the orchestrator")
+    return session.trace
+
+
+@register_tool(
+    "resume_investigation",
+    "Re-execute only the steps an orchestrated session did not complete, "
+    "reusing its analysis; a fully completed session is a no-op.",
+    _SESSION_ARG,
+)
+def _resume_investigation(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    from veritriage.orchestrator import resume_profile
+
+    session = resume_profile(services, str(arguments["session_id"]))
+    return {
+        "summary": services.summary(session).model_dump(mode="json"),
+        "completed": session.trace.completed if session.trace else None,
+    }

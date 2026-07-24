@@ -9,7 +9,7 @@ what's next" record.
 
 Repo: https://github.com/patel-om/veritriage (public, Apache-2.0)
 Local path: `/Users/ompatel/Documents/veritriage`
-Current version: **0.8.0**
+Current version: **0.9.0**
 Portfolio integration: card + sample artifacts in
 `/Users/ompatel/Documents/Om Portfolio` (`index.html`,
 `veritriage-sample-report.html`, `veritriage-sample-dashboard.html`)
@@ -290,6 +290,52 @@ file), two cohesive packages instead of the spec's seven examples, full
 CLI-as-client refactor. Design doc: `docs/WORKSPACE_PLATFORM.md` (approved
 before implementation).
 
+### Milestone 9 (v0.9.0) - Investigation Orchestrator
+An orchestration layer that composes existing Workspace Services into complete
+investigations; it schedules and observes, never concludes (every technical
+conclusion still comes from the deterministic stack, unchanged). New
+`orchestrator/` package: `steps.py` (`InvestigationStep` ABC +
+`@register_step` + 10 built-in steps, each a thin `WorkspaceServices` call:
+gather-context, analyze-artifacts, summarize, historical-lookup,
+knowledge-review, waveform-review, engineering-review, build-timeline,
+render-report, persist-session), `profiles.py` (`@register_profile` + 7
+built-ins: fast-triage, full-investigation, regression-analysis,
+protocol-debug, waveform-focused, infrastructure-review, engineering-review;
+`build_plan` with deterministic plan IDs), `engine.py` (deterministic Kahn
+execution: sorted-id ready frontier = the future-async seam; per-step retry
+budget; failure isolation with transitive-dependent SKIP and surviving
+independent branches; partial completion; `run_profile`; `resume_profile`
+re-runs only non-COMPLETED steps; `attribute_subsystems` maps signals by name
+prefix and recommendations by rationale marker to knowledge/waveform/
+engineering/history/ownership/rules/reasoning). **Key design decision
+(user-approved):** the deterministic pipeline is ONE atomic `analyze-artifacts`
+step; per-subsystem visibility comes from trace attribution, NOT from
+fragmenting reasoning (which would duplicate it or dismantle the core's
+test-pinned composition). Vocabulary in `models/orchestration.py` (frozen
+`InvestigationPlan`/`PlanStep`/`StepStatus`/`StepTrace`/`SubsystemAttribution`/
+`InvestigationTrace`; `structural_view()` strips timings for determinism
+comparison) so the session can reference it while the workspace stays below
+the orchestrator. Additive edits only: two workspace service methods
+(`gather_engineering_context`, `render_report`; both benefit MCP too), two
+optional `InvestigationSession` fields (`plan`, `trace`, attached via
+`model_copy` so identity is unchanged: workflow bookkeeping is never
+identity), a presentation-only report "Investigation performance" section
+(`HtmlReportGenerator.render(metrics=...)`, byte-identical without metrics),
+CLI `run`/`profiles` commands, 5 MCP tools (run_investigation, list_profiles,
+get_investigation_plan, get_investigation_trace, resume_investigation). No
+core engine changed; no report schema change (sessions wrap v7). Architecture
+guards: orchestrator-never-bypasses-services (AST: imports only workspace +
+models + itself), core-unchanged-by-orchestration (nothing below imports it,
+workspace included), plans/traces-immutable, profiles-only-compose-registered
+-steps, no-AI, and the crown jewel `test_new_step_needs_only_registration` (a
+throwaway step + profile run through the real engine with zero core changes).
+18 new tests (256 total). Two implementation deltas from the design, both doc
+-noted: models live in models/orchestration.py (layer-neutral), and
+regression-analysis ships without a compare-to-precedent step (historical
+matches carry regression IDs not session IDs; services.compare stays available
+directly). Design doc: `docs/INVESTIGATION_ORCHESTRATOR.md` (approved before
+implementation).
+
 ---
 
 ## 3. Current architecture map
@@ -332,9 +378,14 @@ src/veritriage/
                      report sections), search.py (deterministic search). Imports
                      the core; NOTHING in the core imports it (guard-enforced).
   mcp/               M8: tools.py (transport-agnostic tool table over services,
-                     12 tools, register_tool extension point), server.py
-                     (dependency-free MCP stdio JSON-RPC transport). Serve with
-                     `veritriage mcp`.
+                     17 tools incl. 5 M9 orchestration tools, register_tool
+                     extension point), server.py (dependency-free MCP stdio
+                     JSON-RPC transport). Serve with `veritriage mcp`.
+  orchestrator/      M9: steps.py (InvestigationStep + register_step + 10 built-in
+                     steps), profiles.py (register_profile + 7 profiles +
+                     build_plan), engine.py (deterministic execution, trace,
+                     attribution, run_profile + resume_profile). Imports ONLY the
+                     workspace + models vocabulary; nothing below imports it.
   history/           M4: record.py (RegressionRecord + git metadata capture),
                      engine.py (HistoryEngine: record + additive augment).
   signatures/        M4: deterministic FailureSignature + digest.
@@ -345,9 +396,10 @@ src/veritriage/
   dashboard/         M4: DashboardGenerator (self-contained dashboard.html).
   reports/           HTML report generator (Jinja2, self-contained, light/dark).
   cli/main.py        Typer app: analyze, parsers, knowledge, waveform, context,
-                     investigate, impact, mcp, sessions, dashboard, history,
-                     feedback, version. Since M8 the CLI is a WorkspaceServices
-                     client and never imports veritriage.pipeline directly.
+                     investigate, impact, mcp, sessions, run, profiles, dashboard,
+                     history, feedback, version. Since M8 the CLI is a
+                     WorkspaceServices client and never imports veritriage.pipeline
+                     directly; since M9 `run`/`profiles` drive the orchestrator.
   pipeline.py        analyze(): parse -> graph -> classify -> knowledge -> reason.
                      Waveform artifacts and context manifests parse like any other
                      (registered Parsers); waveform + engineering reasoning rules
@@ -375,10 +427,10 @@ v3 adds `reasoning` (M3) → v4 adds `history` (M4) → v5 adds `knowledge`
 (M5) → v6 adds `waveform` (M6) → v7 adds `engineering` (M7). Bump on any
 breaking field change; tests assert the current value (`test_cli.py`).
 
-**Current test count: 238**, across `tests/test_*.py`: parsers, rules,
+**Current test count: 256**, across `tests/test_*.py`: parsers, rules,
 graph, artifact parsers, models, report, CLI, AI boundary, reasoning,
-history, analytics, knowledge, waveform, engineering, workspace/MCP. Run
-with `.venv/bin/python -m pytest -q` from the repo root.
+history, analytics, knowledge, waveform, engineering, workspace/MCP,
+orchestrator. Run with `.venv/bin/python -m pytest -q` from the repo root.
 
 ---
 
@@ -550,6 +602,6 @@ PyPI to reserve the name. Requires explicit user go-ahead.
   pass any time a new milestone lands, to keep the "why v3+ needs no
   restructuring" style tables current (this file's section 3 is a faster
   place to check current state than re-reading every doc).
-- No known failing tests or open bugs as of M8 (238/238 passing).
+- No known failing tests or open bugs as of M9 (256/256 passing).
 - `analyzers/` package (superseded by `reasoning/ai.py` at M3) was already
   removed; if it ever reappears from a bad merge, delete it again.

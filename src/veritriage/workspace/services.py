@@ -82,6 +82,46 @@ class WorkspaceServices:
 
     # --- Investigations ----------------------------------------------------
 
+    def gather_engineering_context(
+        self, root: Path, max_commits: int = 10
+    ) -> EngineeringContext | None:
+        """Collect engineering context from every provider available at a root.
+
+        The workspace-level wrapper over the provider registry (added in M9
+        so orchestration steps and MCP tools gather context through services
+        like everything else). Returns None when nothing contributed, so
+        callers can pass the result straight to :meth:`investigate`.
+        """
+        from veritriage.engineering import collect_context
+
+        gathered = collect_context(root, max_commits=max_commits)
+        return None if gathered.is_empty else gathered
+
+    def render_report(
+        self,
+        session: InvestigationSession,
+        output_dir: Path,
+        metrics: dict | None = None,
+    ) -> Path:
+        """Write the session's analysis.json, evidence_graph.json, and
+        report.html to a directory; returns the report path.
+
+        ``metrics`` is optional plain data (an orchestration trace's step
+        timings) rendered as an "Investigation performance" report section;
+        without it the output is byte-identical to pre-M9 reports.
+        """
+        from veritriage.reports import HtmlReportGenerator
+        from veritriage.utils import write_json
+
+        write_json(session.report, output_dir / "analysis.json")
+        write_json(session.graph, output_dir / "evidence_graph.json")
+        return HtmlReportGenerator().write(
+            session.report,
+            output_dir / "report.html",
+            graph=session.graph,
+            metrics=metrics,
+        )
+
     def investigate(
         self,
         paths: Sequence[Path],

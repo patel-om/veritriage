@@ -22,7 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 import veritriage
 from veritriage.graph.graph import EvidenceGraph
-from veritriage.models import AnalysisReport
+from veritriage.models import AnalysisReport, InvestigationPlan, InvestigationTrace
 
 
 def make_session_id(report: AnalysisReport, graph: EvidenceGraph) -> str:
@@ -58,6 +58,16 @@ class InvestigationSession(BaseModel):
     veritriage_version: str = Field(description="Platform version that produced this session.")
     report: AnalysisReport
     graph: EvidenceGraph
+    plan: InvestigationPlan | None = Field(
+        default=None,
+        description="The investigation plan that produced this session, when orchestrated. "
+        "Attached via model_copy (a new session object); never part of identity.",
+    )
+    trace: InvestigationTrace | None = Field(
+        default=None,
+        description="The execution trace of the orchestrated run, when orchestrated. "
+        "Workflow bookkeeping only; session_id never depends on it.",
+    )
 
 
 def make_session(

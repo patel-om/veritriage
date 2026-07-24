@@ -22,7 +22,7 @@ from veritriage.utils import write_json
 # logic lives in WorkspaceServices, shared verbatim with the MCP server.
 # Nothing here may import veritriage.pipeline directly; an architecture test
 # in tests/test_workspace.py pins that.
-from veritriage.workspace import DEFAULT_SESSION_ROOT, WorkspaceServices
+from veritriage.workspace import WorkspaceServices
 
 #: Default location of the regression database, relative to the working tree.
 DEFAULT_DB = Path(".veritriage") / "regressions.db"
@@ -213,6 +213,79 @@ def sessions(
             summary.test_name or "-",
             str(len(summary.input_files)),
         )
+    console.print(table)
+
+
+@app.command()
+def run(
+    profile: str = typer.Argument(..., help="Investigation profile, e.g. fast-triage."),
+    artifacts: List[Path] = typer.Argument(..., help="Artifacts to investigate."),
+    context_root: Path = typer.Option(
+        Path("."), "--context-root", help="Directory the context providers inspect."
+    ),
+    output_dir: Optional[Path] = typer.Option(
+        None, "--output-dir", "-o", help="Report output directory (profiles with render-report)."
+    ),
+    session_root: Path = typer.Option(
+        None, "--session-root", help="Sessions directory (default .veritriage/sessions)."
+    ),
+    db: Path = typer.Option(DEFAULT_DB, "--db", help="Regression database file."),
+) -> None:
+    """Run one orchestrated investigation profile end to end."""
+    from veritriage.orchestrator import run_profile
+
+    services = WorkspaceServices(session_root=session_root, db=db)
+    try:
+        session = run_profile(
+            services, profile, artifacts, context_root=context_root, output_dir=output_dir
+        )
+    except KeyError as exc:
+        _err.print(f"[red]error:[/red] {escape(str(exc.args[0]))}")
+        raise typer.Exit(code=2)
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        _err.print(f"[red]error:[/red] {escape(str(exc))}")
+        raise typer.Exit(code=2)
+
+    _print_summary(session.report)
+    trace = session.trace
+    table = Table(title=f"Investigation trace ({trace.profile}, plan {session.plan.plan_id})")
+    for column in ("Step", "Status", "Attempts", "Duration", "Produced"):
+        table.add_column(column)
+    for step in trace.steps:
+        table.add_row(
+            step.step_id,
+            step.status.value,
+            str(step.attempts),
+            f"{step.duration_ms:.0f} ms" if step.duration_ms is not None else "-",
+            ", ".join(step.produced) or "-",
+        )
+    console.print(table)
+    for entry in trace.attribution:
+        console.print(
+            f"[dim]{entry.subsystem}:[/dim] {len(entry.signals)} signal"
+            f"{'s' if len(entry.signals) != 1 else ''}, {entry.recommendations} recommendation"
+            f"{'s' if entry.recommendations != 1 else ''}"
+        )
+    console.print(
+        f"[dim]session[/dim] [bold]{session.session_id}[/bold]"
+        + (f"  [dim]total[/dim] {trace.total_duration_ms:.0f} ms" if trace.total_duration_ms else "")
+    )
+    if not trace.completed:
+        _err.print("[yellow]warning:[/yellow] investigation completed partially; see the trace")
+    if session.report.classification.category.value != "no_failure":
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def profiles() -> None:
+    """List registered investigation profiles and their steps."""
+    from veritriage.orchestrator import available_profiles
+
+    table = Table(title="Investigation profiles")
+    for column in ("Profile", "Steps", "Description"):
+        table.add_column(column)
+    for name, profile in sorted(available_profiles().items()):
+        table.add_row(name, " -> ".join(s.id for s in profile.steps), profile.description)
     console.print(table)
 
 

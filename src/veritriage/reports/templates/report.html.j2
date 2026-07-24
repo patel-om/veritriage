@@ -632,6 +632,23 @@
   </section>
   {% endif %}
 
+  {% if metrics %}
+  <section>
+    <h2>Investigation Performance</h2>
+    <div class="card">
+      <p class="ev-refs" style="margin: 0 0 8px;">
+        <b>Orchestrated investigation</b>{% if metrics.profile %} · profile <code>{{ metrics.profile }}</code>{% endif %}{% if metrics.total_ms is not none %} · total {{ "%.0f" | format(metrics.total_ms) }} ms{% endif %}
+      </p>
+      {% for step in metrics.steps %}
+      <p style="margin: 6px 0 0; color: var(--ink-2); font-size: 13.5px;">
+        <span class="chip"><span class="dot {{ 'good' if step.status == 'completed' else ('critical' if step.status == 'failed' else 'muted') }}"></span>{{ step.label }}</span>
+        {{ step.status }}{% if step.duration_ms is not none %} · {{ "%.0f" | format(step.duration_ms) }} ms{% endif %}
+      </p>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
   {% if report.history %}
   <section>
     <h2>Historical Context</h2>

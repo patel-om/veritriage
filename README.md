@@ -108,6 +108,14 @@ veritriage context                                         # what the providers 
 veritriage mcp                                             # MCP tool server (stdio)
 veritriage sessions                                        # list persisted investigation sessions
 
+# Orchestrated investigation workflows (M9): named profiles that compose the
+# existing services into a complete investigation, producing an immutable
+# plan, a deterministic execution trace with per-subsystem attribution and
+# per-step timings, and a persisted session carrying both.
+veritriage profiles                                        # list investigation profiles
+veritriage run fast-triage simulation.log                  # thirty-second triage
+veritriage run full-investigation simulation.log dump.vcd -o out/   # everything on
+
 # Add an AI summary grounded in the evidence graph
 veritriage analyze simulation.log -o out/ --ai
 
@@ -186,13 +194,15 @@ untouched by design
 ## Roadmap (documented, not built)
 
 The core is stable; future work is integrations over existing seams: a VS
-Code extension and other IDE clients as thin consumers of `WorkspaceServices`
-and the MCP server (shipped in v0.8.0) -> more waveform adapters (FSDB, FST,
-WLF, transaction DBs) behind the existing `WaveformAdapter` interface -> more
-context providers (GitHub, GitLab, Perforce, Gerrit, Jenkins, Jira, DOORS)
-behind the existing `ContextProvider` interface -> learned similarity
-embeddings behind the existing `EmbeddingProvider` interface -> Slack
-integration, GitHub Action.
+Code extension and other IDE clients as thin consumers of `WorkspaceServices`,
+the MCP server (v0.8.0), and orchestration profiles (v0.9.0) -> more waveform
+adapters (FSDB, FST, WLF, transaction DBs) behind the existing
+`WaveformAdapter` interface -> more context providers (GitHub, GitLab,
+Perforce, Gerrit, Jenkins, Jira, DOORS) behind the existing `ContextProvider`
+interface -> more investigation profiles and steps behind the existing
+`register_step` / `register_profile` seams -> learned similarity embeddings
+behind the existing `EmbeddingProvider` interface -> Slack integration,
+GitHub Action.
 
 ## License
 

@@ -70,13 +70,23 @@ class HtmlReportGenerator:
             lstrip_blocks=True,
         )
 
-    def render(self, report: AnalysisReport, graph: EvidenceGraph | None = None) -> str:
+    def render(
+        self,
+        report: AnalysisReport,
+        graph: EvidenceGraph | None = None,
+        metrics: dict[str, Any] | None = None,
+    ) -> str:
         """Render the report to an HTML string.
 
         Args:
             report: The analysis to render.
             graph: When provided, the working-set evidence graph is drawn as
                 an inline SVG; without it the section shows stats only.
+            metrics: Optional plain investigation-performance data (profile,
+                per-step durations, total) rendered as its own section. This
+                is presentation only: the generator stays ignorant of where
+                the numbers came from, and output without metrics is
+                byte-identical to earlier versions.
         """
         ownership_roles = {}
         if report.knowledge is not None:
@@ -96,14 +106,19 @@ class HtmlReportGenerator:
             warning_count=report.summary.count(Severity.WARNING),
             assertion_count=sum(1 for f in report.failures if f.kind == "assertion_failure"),
             graph_viz=_layout_working_set(report, graph) if graph is not None else None,
+            metrics=metrics,
         )
 
     def write(
-        self, report: AnalysisReport, path: Path, graph: EvidenceGraph | None = None
+        self,
+        report: AnalysisReport,
+        path: Path,
+        graph: EvidenceGraph | None = None,
+        metrics: dict[str, Any] | None = None,
     ) -> Path:
         """Render and write the report to ``path``; returns the path written."""
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(self.render(report, graph=graph), encoding="utf-8")
+        path.write_text(self.render(report, graph=graph, metrics=metrics), encoding="utf-8")
         return path
 
 

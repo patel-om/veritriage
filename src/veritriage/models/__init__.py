@@ -12,6 +12,14 @@ from veritriage.models.engineering import (
     InvestigationView,
     TimelineEventView,
 )
+from veritriage.models.orchestration import (
+    InvestigationPlan,
+    InvestigationTrace,
+    PlanStep,
+    StepStatus,
+    StepTrace,
+    SubsystemAttribution,
+)
 from veritriage.models.events import Severity, SimulationEvent
 from veritriage.models.evidence import Evidence
 from veritriage.models.failure import AssertionFailure, Failure, FailureCategory
@@ -69,12 +77,15 @@ __all__ = [
     "Hypothesis",
     "HypothesisCategory",
     "ImpactedTestView",
+    "InvestigationPlan",
+    "InvestigationTrace",
     "InvestigationView",
     "KnowledgeContext",
     "KnowledgeReference",
     "LogSummary",
     "MatchedConcept",
     "MatchedPattern",
+    "PlanStep",
     "PlaybookStepView",
     "PlaybookView",
     "Recommendation",
@@ -86,6 +97,9 @@ __all__ = [
     "SimulationEvent",
     "StateProgress",
     "StateProjection",
+    "StepStatus",
+    "StepTrace",
+    "SubsystemAttribution",
     "TimelineEventView",
     "WaveformCapabilityView",
     "WaveformContext",

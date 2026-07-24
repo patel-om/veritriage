@@ -145,6 +145,7 @@ reasoning engine; it just sees more nodes.
 | A new waveform simulator (FSDB, FST, WLF, transaction DB) | one `WaveformAdapter` subclass, nothing else (see the two laws below) |
 | A new engineering system (GitHub, GitLab, Perforce, Gerrit, Jenkins, Jira, DOORS) | one `ContextProvider` subclass, nothing else (see the M7 laws below) |
 | A new client or API endpoint (VS Code, Cursor, internal tools) | a `WorkspaceServices` consumer or one MCP tool via `register_tool`, nothing else (M8) |
+| A new investigation workflow step or profile | one `register_step` / `register_profile` call, nothing else (M9) |
 | Spec retrieval | new node types + correlation passes |
 | New protocol/domain expertise (ACE, AXI-Stream, power management, security, formal, company-internal protocols, ...) | a Knowledge Pack module with `@register_pack` |
 | Multi-agent / deeper AI reasoning | consumers of `to_reasoning_view()`, behind the same boundary |
@@ -231,6 +232,24 @@ services and never import the pipeline directly
 (`test_cli_and_mcp_share_services`, AST-verified), sessions are immutable,
 the public API never exposes raw parser/adapter/provider objects, and a new
 endpoint is one registered tool (`test_new_endpoint_needs_only_a_tool`).
+
+## Investigation Orchestrator (M9): explicit workflows over the services
+
+Investigations are explicit, immutable, serializable Investigation Plans
+built from registered profiles (`veritriage run <profile>`, or the
+`run_investigation` MCP tool) and executed by a deterministic engine (Kahn
+order, sorted frontier, retries, failure isolation with SKIPPED dependents
+and surviving independent branches). Every run produces an Execution Trace:
+per-step status, timing, artifact flow, and per-subsystem attribution
+(which signals and recommendations came from knowledge, waveform,
+engineering, history, ownership, or the built-in rules), embedded in the
+persisted session. The orchestrator schedules and observes; it never
+concludes: it can import only the workspace and the models vocabulary
+(`test_orchestrator_never_bypasses_services`, AST-verified), nothing below
+imports it (`test_core_unchanged_by_orchestration`), and a new workflow
+step or profile is one registration
+(`test_new_step_needs_only_registration`). Full design:
+[INVESTIGATION_ORCHESTRATOR.md](INVESTIGATION_ORCHESTRATOR.md).
 
 ## Known limitations
 
