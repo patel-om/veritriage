@@ -465,11 +465,12 @@ src/veritriage/
 **Pipeline call order** (`pipeline.py::analyze`): parsers emit graph
 fragments → `GraphBuilder` merges + correlates → `RuleEngine.classify()` →
 `KnowledgeEngine.analyze()` computes the `KnowledgeContext` →
-`ReasoningEngine(rules=[*default_reasoning_rules(), *knowledge_reasoning_rules(), *waveform_reasoning_rules()])`
+`ReasoningEngine(rules=[*default_reasoning_rules(), *knowledge_reasoning_rules(), *waveform_reasoning_rules(), *engineering_reasoning_rules()])`
 runs selection/signals/hypotheses/ranking/recommendations, with knowledge
-patterns and waveform observations both injected as ordinary rules →
-`AnalysisReport` assembled (`schema_version = "6"`, `waveform` field via
-`build_waveform_context`). History recording (`HistoryEngine.record` +
+patterns, waveform observations, and engineering changes all injected as
+ordinary rules → `AnalysisReport` assembled (`schema_version = "7"`,
+`waveform` field via `build_waveform_context` and `engineering` field via
+`build_engineering_view`). History recording (`HistoryEngine.record` +
 `.augment`) happens in the CLI, strictly after `analyze()` returns, so the
 library function itself never touches the filesystem beyond reading the
 input artifacts.
