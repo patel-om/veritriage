@@ -649,6 +649,48 @@
   </section>
   {% endif %}
 
+  {% if collaboration %}
+  <section>
+    <h2>Collaboration</h2>
+    <div class="card">
+      <p class="ev-refs" style="margin: 0 0 8px;">
+        <b>Investigation bundle</b>{% if collaboration.title %} · {{ collaboration.title }}{% endif %}
+        · <code>{{ collaboration.bundle_id }}</code>
+        {% if collaboration.exported_by %} · exported by {{ collaboration.exported_by }}{% endif %}
+      </p>
+      <p style="margin: 6px 0 0; color: var(--ink-2); font-size: 13.5px;">
+        <span class="chip"><span class="dot {{ 'good' if collaboration.validation_ok else 'critical' }}"></span>{{ 'valid' if collaboration.validation_ok else 'validation failed' }}</span>
+        review status: <b style="color: var(--ink);">{{ collaboration.review_status }}</b>
+        · fingerprint <code>{{ collaboration.fingerprint[:23] }}...</code>
+      </p>
+      {% for finding in collaboration.validation_findings %}
+      <p style="margin: 6px 0 0; color: var(--ink-2); font-size: 13px;">{{ finding.severity }}: {{ finding.message }}</p>
+      {% endfor %}
+    </div>
+    {% if collaboration.reviews %}
+    <div class="card">
+      <p class="ev-refs" style="margin: 0 0 8px;"><b>Reviews</b></p>
+      {% for review in collaboration.reviews %}
+      <p style="margin: 6px 0 0; color: var(--ink-2); font-size: 13.5px;">
+        <span class="chip"><span class="dot {{ 'good' if review.verdict == 'approved' else 'serious' }}"></span>{{ review.verdict }}</span>
+        {{ review.reviewer }}{% if review.comment %}: {{ review.comment }}{% endif %}
+      </p>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if collaboration.annotations %}
+    <div class="card">
+      <p class="ev-refs" style="margin: 0 0 8px;"><b>Annotations</b></p>
+      {% for note in collaboration.annotations %}
+      <p style="margin: 6px 0 0; color: var(--ink-2); font-size: 13.5px;">
+        <code>{{ note.target }}</code> · {{ note.author }}: {{ note.text }}
+      </p>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
   {% if report.history %}
   <section>
     <h2>Historical Context</h2>

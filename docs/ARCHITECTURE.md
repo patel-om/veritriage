@@ -146,6 +146,7 @@ reasoning engine; it just sees more nodes.
 | A new engineering system (GitHub, GitLab, Perforce, Gerrit, Jenkins, Jira, DOORS) | one `ContextProvider` subclass, nothing else (see the M7 laws below) |
 | A new client or API endpoint (VS Code, Cursor, internal tools) | a `WorkspaceServices` consumer or one MCP tool via `register_tool`, nothing else (M8) |
 | A new investigation workflow step or profile | one `register_step` / `register_profile` call, nothing else (M9) |
+| A new annotation target kind (collaboration) | one `register_annotation_target` call, nothing else (M10) |
 | Spec retrieval | new node types + correlation passes |
 | New protocol/domain expertise (ACE, AXI-Stream, power management, security, formal, company-internal protocols, ...) | a Knowledge Pack module with `@register_pack` |
 | Multi-agent / deeper AI reasoning | consumers of `to_reasoning_view()`, behind the same boundary |
@@ -250,6 +251,37 @@ imports it (`test_core_unchanged_by_orchestration`), and a new workflow
 step or profile is one registration
 (`test_new_step_needs_only_registration`). Full design:
 [INVESTIGATION_ORCHESTRATOR.md](INVESTIGATION_ORCHESTRATOR.md).
+
+## Collaborative Investigation Platform (M10): portable investigations
+
+An investigation becomes a portable, reviewable, reproducible engineering
+artifact: the immutable session wrapped in a versioned, content-addressed,
+integrity-fingerprinted Investigation Bundle (`.vtb`) that also carries the
+collaboration layer (reviews and annotations that sit on top of the session
+and never touch it). An engineer exports a bundle, hands it to another with no
+access to the original regression environment, and they import, review,
+annotate against real object IDs, validate by fingerprint, compare with an
+explanation of what changed, and continue investigating from the imported
+session. Bundles contain only normalized platform objects, never a raw
+waveform or log file. Full design:
+[COLLABORATION_PLATFORM.md](COLLABORATION_PLATFORM.md).
+
+Pinned by `tests/test_collaboration.py`: bundles are deterministic and their
+export/import round-trip is lossless; reviews and annotations never mutate the
+session or affect reasoning; validation is reproducible and catches tampering
+(fingerprint) and dangling references; `collab/` imports only the workspace
+and models (AST-verified) and no core package imports it; and a new annotation
+type is one `register_annotation_target` call
+(`test_new_annotation_target_needs_only_registration`).
+
+## v1.0.0: the core is stable
+
+Ten milestones landed additively without breaking a prior one, every
+extension point is registry-shaped and test-pinned, and the public surface -
+`WorkspaceServices`, the MCP tool table, the orchestrator's step/profile
+registries, and the `.vtb` bundle format - is now declared stable. Future
+work is integrations and ecosystem adoption over these seams, not core
+expansion.
 
 ## Known limitations
 

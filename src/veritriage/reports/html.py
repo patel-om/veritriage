@@ -75,6 +75,7 @@ class HtmlReportGenerator:
         report: AnalysisReport,
         graph: EvidenceGraph | None = None,
         metrics: dict[str, Any] | None = None,
+        collaboration: dict[str, Any] | None = None,
     ) -> str:
         """Render the report to an HTML string.
 
@@ -87,6 +88,10 @@ class HtmlReportGenerator:
                 is presentation only: the generator stays ignorant of where
                 the numbers came from, and output without metrics is
                 byte-identical to earlier versions.
+            collaboration: Optional plain bundle-collaboration data (metadata,
+                fingerprint, review status, annotations, validation results)
+                rendered as a Collaboration section. Presentation only: the
+                reports package stays ignorant of bundle internals.
         """
         ownership_roles = {}
         if report.knowledge is not None:
@@ -107,6 +112,7 @@ class HtmlReportGenerator:
             assertion_count=sum(1 for f in report.failures if f.kind == "assertion_failure"),
             graph_viz=_layout_working_set(report, graph) if graph is not None else None,
             metrics=metrics,
+            collaboration=collaboration,
         )
 
     def write(
@@ -115,10 +121,14 @@ class HtmlReportGenerator:
         path: Path,
         graph: EvidenceGraph | None = None,
         metrics: dict[str, Any] | None = None,
+        collaboration: dict[str, Any] | None = None,
     ) -> Path:
         """Render and write the report to ``path``; returns the path written."""
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(self.render(report, graph=graph, metrics=metrics), encoding="utf-8")
+        path.write_text(
+            self.render(report, graph=graph, metrics=metrics, collaboration=collaboration),
+            encoding="utf-8",
+        )
         return path
 
 

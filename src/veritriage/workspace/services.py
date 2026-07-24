@@ -282,6 +282,97 @@ class WorkspaceServices:
             probe.embedding = engine.provider.embed(probe)
             return engine.find_similar(probe, top_k=limit)
 
+    # --- Bundles and collaboration (M10) -----------------------------------
+    #
+    # Bundle operations delegate to the collab package through lazy imports,
+    # so WorkspaceServices stays the single public boundary (clients never
+    # import collab) with no import-time coupling: exactly how this class
+    # already reaches storage, history, and reports.
+
+    def export_bundle(
+        self,
+        session: InvestigationSession,
+        path: Path,
+        exported_by: str | None = None,
+        title: str | None = None,
+        compress: bool = True,
+    ) -> Path:
+        """Export a session as a portable, sealed investigation bundle file."""
+        from veritriage.collab import export_bundle, make_bundle
+
+        bundle = make_bundle(session, exported_by=exported_by, title=title)
+        return export_bundle(bundle, path, compress=compress)
+
+    def import_bundle(self, path: Path, save_session: bool = True):
+        """Import a bundle file; optionally persist its session so the
+        investigation can continue. Returns the bundle."""
+        from veritriage.collab import import_bundle
+
+        bundle = import_bundle(path)
+        if save_session:
+            self._store.save(bundle.session)
+        return bundle
+
+    def validate_bundle(self, path: Path):
+        """Validate a bundle file; returns a deterministic ValidationResult."""
+        from veritriage.collab import import_bundle, validate_bundle
+
+        return validate_bundle(import_bundle(path))
+
+    def review_bundle(
+        self, path: Path, verdict: str, reviewer: str, comment: str = ""
+    ) -> Path:
+        """Append a review to a bundle file in place; returns the path."""
+        from veritriage.collab import add_review, export_bundle, import_bundle
+
+        reviewed = add_review(import_bundle(path), verdict, reviewer, comment)
+        return export_bundle(reviewed, path)
+
+    def annotate_bundle(
+        self, path: Path, target_type: str, target_id: str, author: str, text: str
+    ) -> Path:
+        """Append an annotation to a bundle file in place; returns the path."""
+        from veritriage.collab import add_annotation, export_bundle, import_bundle
+
+        annotated = add_annotation(import_bundle(path), target_type, target_id, author, text)
+        return export_bundle(annotated, path)
+
+    def compare_bundles(self, a: Path, b: Path):
+        """Explain what changed between two bundle files."""
+        from veritriage.collab import compare_bundles, import_bundle
+
+        return compare_bundles(import_bundle(a), import_bundle(b))
+
+    def collaboration_view(self, path: Path) -> dict:
+        """Plain collaboration data for the report's Collaboration section.
+
+        Presentation only: built here so the reports package stays ignorant
+        of bundle internals.
+        """
+        from veritriage.collab import import_bundle, review_status, validate_bundle
+
+        bundle = import_bundle(path)
+        result = validate_bundle(bundle)
+        return {
+            "bundle_id": bundle.bundle_id,
+            "fingerprint": bundle.metadata.fingerprint,
+            "title": bundle.metadata.title,
+            "exported_by": bundle.metadata.exported_by,
+            "review_status": review_status(bundle),
+            "reviews": [
+                {"verdict": r.verdict.value, "reviewer": r.reviewer, "comment": r.comment}
+                for r in bundle.reviews
+            ],
+            "annotations": [
+                {"target": f"{a.target_type}:{a.target_id}", "author": a.author, "text": a.text}
+                for a in bundle.annotations
+            ],
+            "validation_ok": result.ok,
+            "validation_findings": [
+                {"severity": f.severity.value, "message": f.message} for f in result.findings
+            ],
+        }
+
     # --- Comparison ----------------------------------------------------------
 
     def compare(

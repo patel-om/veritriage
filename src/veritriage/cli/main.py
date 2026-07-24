@@ -289,6 +289,149 @@ def profiles() -> None:
     console.print(table)
 
 
+bundle_app = typer.Typer(
+    name="bundle",
+    help="Export, import, validate, and compare portable investigation bundles.",
+    no_args_is_help=True,
+)
+app.add_typer(bundle_app)
+
+
+@bundle_app.command("export")
+def bundle_export(
+    session_id: str = typer.Argument(..., help="Session ID to export (see `veritriage sessions`)."),
+    output: Path = typer.Option(..., "--output", "-o", help="Bundle file to write (e.g. inv.vtb)."),
+    exported_by: Optional[str] = typer.Option(None, "--by", help="Who exported this investigation."),
+    title: Optional[str] = typer.Option(None, "--title", help="A human title for the bundle."),
+    compress: bool = typer.Option(True, "--compress/--no-compress", help="gzip the bundle."),
+    session_root: Path = typer.Option(None, "--session-root", help="Sessions directory."),
+) -> None:
+    """Export a persisted session as a portable investigation bundle."""
+    services = WorkspaceServices(session_root=session_root)
+    session = services.load(session_id)
+    if session is None:
+        _err.print(f"[red]error:[/red] unknown session {escape(session_id)}")
+        raise typer.Exit(code=2)
+    path = services.export_bundle(
+        session, output, exported_by=exported_by, title=title, compress=compress
+    )
+    console.print(f"[dim]exported[/dim] {path}")
+
+
+@bundle_app.command("import")
+def bundle_import(
+    bundle: Path = typer.Argument(..., help="Bundle file to import."),
+    session_root: Path = typer.Option(None, "--session-root", help="Sessions directory."),
+) -> None:
+    """Import a bundle, loading its session into the workspace to continue."""
+    from veritriage.collab import BundleFormatError
+
+    services = WorkspaceServices(session_root=session_root)
+    try:
+        loaded = services.import_bundle(bundle)
+    except BundleFormatError as exc:
+        _err.print(f"[red]error:[/red] {escape(str(exc))}")
+        raise typer.Exit(code=2)
+    console.print(
+        f"imported bundle [bold]{loaded.bundle_id}[/bold]; session "
+        f"[bold]{loaded.session.session_id}[/bold] is now available"
+    )
+
+
+@bundle_app.command("validate")
+def bundle_validate(
+    bundle: Path = typer.Argument(..., help="Bundle file to validate."),
+) -> None:
+    """Verify a bundle's schema, integrity, and referential consistency."""
+    from veritriage.collab import BundleFormatError
+
+    services = WorkspaceServices()
+    try:
+        result = services.validate_bundle(bundle)
+    except BundleFormatError as exc:
+        _err.print(f"[red]error:[/red] {escape(str(exc))}")
+        raise typer.Exit(code=2)
+    verdict = "[green]valid[/green]" if result.ok else "[red]INVALID[/red]"
+    console.print(f"bundle {result.bundle_id} (schema {result.schema_version}): {verdict}")
+    for finding in result.findings:
+        color = "red" if finding.severity.value == "error" else "yellow"
+        console.print(f"  [{color}]{finding.severity.value}[/{color}] {finding.code}: {escape(finding.message)}")
+    if not result.ok:
+        raise typer.Exit(code=1)
+
+
+@bundle_app.command("compare")
+def bundle_compare(
+    bundle_a: Path = typer.Argument(..., help="First bundle."),
+    bundle_b: Path = typer.Argument(..., help="Second bundle."),
+) -> None:
+    """Explain what changed between two investigation bundles."""
+    from veritriage.collab import BundleFormatError
+
+    services = WorkspaceServices()
+    try:
+        comparison = services.compare_bundles(bundle_a, bundle_b)
+    except BundleFormatError as exc:
+        _err.print(f"[red]error:[/red] {escape(str(exc))}")
+        raise typer.Exit(code=2)
+    console.print(f"[bold]{escape(comparison.summary)}[/bold]\n")
+    for delta in comparison.deltas:
+        console.print(f"[bold]{delta.facet}[/bold]")
+        for item in delta.changed:
+            console.print(f"  [yellow]~[/yellow] {escape(item)}")
+        for item in delta.added:
+            console.print(f"  [green]+[/green] {escape(item)}")
+        for item in delta.removed:
+            console.print(f"  [red]-[/red] {escape(item)}")
+
+
+@app.command()
+def review(
+    bundle: Path = typer.Argument(..., help="Bundle file to review."),
+    verdict: str = typer.Option(
+        ..., "--verdict", help="approved | needs_investigation | incorrect_diagnosis | "
+        "incomplete_evidence | false_positive."
+    ),
+    reviewer: str = typer.Option(..., "--reviewer", help="Who is reviewing."),
+    comment: str = typer.Option("", "--comment", help="Review comment."),
+) -> None:
+    """Record a structured review on a bundle (layers on top; never edits it)."""
+    from veritriage.collab import BundleFormatError
+
+    services = WorkspaceServices()
+    try:
+        path = services.review_bundle(bundle, verdict, reviewer, comment)
+    except (BundleFormatError, ValueError) as exc:
+        _err.print(f"[red]error:[/red] {escape(str(exc))}")
+        raise typer.Exit(code=2)
+    console.print(f"recorded [bold]{escape(verdict)}[/bold] review by {escape(reviewer)} on {path}")
+
+
+@app.command()
+def annotate(
+    bundle: Path = typer.Argument(..., help="Bundle file to annotate."),
+    target: str = typer.Option(
+        ..., "--target", help="target_type:target_id, e.g. evidence:ev-abc123."
+    ),
+    author: str = typer.Option(..., "--author", help="Who is annotating."),
+    text: str = typer.Option(..., "--text", help="The annotation text."),
+) -> None:
+    """Pin an immutable annotation to an existing object in the investigation."""
+    from veritriage.collab import BundleFormatError
+
+    if ":" not in target:
+        _err.print("[red]error:[/red] --target must be 'target_type:target_id'")
+        raise typer.Exit(code=2)
+    target_type, target_id = target.split(":", 1)
+    services = WorkspaceServices()
+    try:
+        path = services.annotate_bundle(bundle, target_type, target_id, author, text)
+    except (BundleFormatError, ValueError) as exc:
+        _err.print(f"[red]error:[/red] {escape(str(exc))}")
+        raise typer.Exit(code=2)
+    console.print(f"annotated [bold]{escape(target)}[/bold] by {escape(author)} on {path}")
+
+
 def _gather_context(root: Path):
     """Collect engineering context from every available provider, best-effort.
 

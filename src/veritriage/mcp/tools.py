@@ -371,3 +371,119 @@ def _resume_investigation(services: WorkspaceServices, arguments: dict[str, Any]
         "summary": services.summary(session).model_dump(mode="json"),
         "completed": session.trace.completed if session.trace else None,
     }
+
+
+# --- Collaboration tools (M10) ----------------------------------------------
+
+
+@register_tool(
+    "export_investigation",
+    "Export a persisted session as a portable, content-addressed, integrity-"
+    "checked investigation bundle file (.vtb) that another engineer can import "
+    "without access to the original regression environment.",
+    _session_arg_with(
+        {
+            "path": {"type": "string", "description": "Bundle file to write."},
+            "title": {"type": "string", "description": "Optional human title."},
+            "exported_by": {"type": "string", "description": "Optional exporter name."},
+        },
+        required=["path"],
+    ),
+)
+def _export_investigation(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    session = _require_session(services, arguments)
+    path = services.export_bundle(
+        session,
+        Path(str(arguments["path"])),
+        exported_by=arguments.get("exported_by"),
+        title=arguments.get("title"),
+    )
+    return {"bundle_path": str(path), "session_id": session.session_id}
+
+
+@register_tool(
+    "import_investigation",
+    "Import an investigation bundle file, loading its session into the "
+    "workspace so the investigation can continue. Returns the bundle metadata.",
+    {
+        "type": "object",
+        "properties": {"path": {"type": "string", "description": "Bundle file to import."}},
+        "required": ["path"],
+    },
+)
+def _import_investigation(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    bundle = services.import_bundle(Path(str(arguments["path"])))
+    return {"bundle_id": bundle.bundle_id, "session_id": bundle.session.session_id, "metadata": bundle.metadata}
+
+
+@register_tool(
+    "validate_bundle",
+    "Validate a bundle file: schema compatibility, integrity fingerprint, and "
+    "referential consistency. Deterministic.",
+    {
+        "type": "object",
+        "properties": {"path": {"type": "string", "description": "Bundle file to validate."}},
+        "required": ["path"],
+    },
+)
+def _validate_bundle(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    result = services.validate_bundle(Path(str(arguments["path"])))
+    return {"ok": result.ok, "bundle_id": result.bundle_id, "findings": result.findings}
+
+
+@register_tool(
+    "compare_bundles",
+    "Explain what changed between two investigation bundles across evidence, "
+    "knowledge, waveform, engineering, recommendations, and execution trace.",
+    {
+        "type": "object",
+        "properties": {
+            "bundle_a": {"type": "string", "description": "First bundle file."},
+            "bundle_b": {"type": "string", "description": "Second bundle file."},
+        },
+        "required": ["bundle_a", "bundle_b"],
+    },
+)
+def _compare_bundles(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    return services.compare_bundles(
+        Path(str(arguments["bundle_a"])), Path(str(arguments["bundle_b"]))
+    )
+
+
+@register_tool(
+    "get_bundle_metadata",
+    "The metadata, review status, and validation verdict of a bundle file.",
+    {
+        "type": "object",
+        "properties": {"path": {"type": "string", "description": "Bundle file."}},
+        "required": ["path"],
+    },
+)
+def _get_bundle_metadata(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    return services.collaboration_view(Path(str(arguments["path"])))
+
+
+@register_tool(
+    "list_reviews",
+    "The reviews recorded on a bundle file (verdict, reviewer, comment).",
+    {
+        "type": "object",
+        "properties": {"path": {"type": "string", "description": "Bundle file."}},
+        "required": ["path"],
+    },
+)
+def _list_reviews(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    return services.collaboration_view(Path(str(arguments["path"])))["reviews"]
+
+
+@register_tool(
+    "list_annotations",
+    "The annotations recorded on a bundle file (target, author, text).",
+    {
+        "type": "object",
+        "properties": {"path": {"type": "string", "description": "Bundle file."}},
+        "required": ["path"],
+    },
+)
+def _list_annotations(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    return services.collaboration_view(Path(str(arguments["path"])))["annotations"]

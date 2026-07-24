@@ -9,7 +9,7 @@ what's next" record.
 
 Repo: https://github.com/patel-om/veritriage (public, Apache-2.0)
 Local path: `/Users/ompatel/Documents/veritriage`
-Current version: **0.9.0**
+Current version: **1.0.0**
 Portfolio integration: card + sample artifacts in
 `/Users/ompatel/Documents/Om Portfolio` (`index.html`,
 `veritriage-sample-report.html`, `veritriage-sample-dashboard.html`)
@@ -336,6 +336,50 @@ matches carry regression IDs not session IDs; services.compare stays available
 directly). Design doc: `docs/INVESTIGATION_ORCHESTRATOR.md` (approved before
 implementation).
 
+### Milestone 10 (v1.0.0) - Collaborative Investigation Platform
+The capstone, and the version freeze. Makes investigations portable,
+reviewable, reproducible engineering artifacts, and declares the public API
+stable. New `collab/` package: `model.py` (frozen `InvestigationBundle` =
+session + reviews + annotations + `BundleMetadata`; content-derived `bundle_id`;
+sha256 integrity `fingerprint`; `seal_bundle` recomputes both on any amend;
+`extra="allow"` for forward compatibility), `exchange.py` (deterministic
+canonical JSON + gzip mtime=0 -> `.vtb`; lossless round-trip; auto-detects
+compression on import; no raw waveform/log files embedded, only the normalized
+session incl. per-node raw_line provenance), `validation.py` (deterministic
+`ValidationResult`: schema-major compat, fingerprint recompute, bundle_id/
+session_id consistency, dangling-annotation + dangling-edge + dangling-
+hypothesis detection, unknown-extension warnings), `review.py` (5 verdicts:
+approved/needs_investigation/incorrect_diagnosis/incomplete_evidence/
+false_positive; `add_review` returns a new sealed bundle), `annotation.py`
+(`@register_annotation_target` registry + 6 built-in kinds: evidence,
+knowledge-pattern, waveform-observation, engineering-commit, recommendation,
+execution-step; `add_annotation` rejects unknown kinds and dangling targets),
+`comparison.py` (explanatory diff across classification/evidence/knowledge/
+waveform/engineering/recommendations/trace/metadata with a human summary
+sentence). **Reviews and annotations layer on top; the session is never
+mutated and reasoning is never affected** (deep-compare tests). Additive
+integration only: WorkspaceServices gains bundle methods (export/import/
+validate/review/annotate/compare/collaboration_view) that reach collab via
+LAZY imports so services stays the boundary with no import-time coupling; an
+optional report Collaboration section (`render(collaboration=...)`, plain data,
+byte-identical without it); CLI `bundle` sub-app (export/import/validate/
+compare) + `review`/`annotate` commands; 7 MCP tools (export/import/validate/
+compare_bundles/get_bundle_metadata/list_reviews/list_annotations). No core
+engine changed; NO report schema change (collab lives in the bundle, not the
+report). collab imports only workspace + models (AST-verified); nothing below
+imports collab. Crown jewel `test_new_annotation_target_needs_only_registration`
+(a throwaway target kind validates and round-trips with zero core changes). 22
+new tests (278 total). Version freeze: pyproject Development Status -> 5 -
+Production/Stable; the public API (WorkspaceServices, MCP tool table,
+orchestrator step/profile registries, .vtb format) is declared stable. Review
+decisions (user-confirmed): ship AS v1.0.0, include raw_line in bundles, one
+collab/ package. Design doc: `docs/COLLABORATION_PLATFORM.md` (approved before
+implementation).
+
+**As of v1.0.0 the core is complete and stable.** Future milestones are
+integrations and ecosystem adoption over existing seams (section 5.8), never
+core expansion.
+
 ---
 
 ## 3. Current architecture map
@@ -378,14 +422,21 @@ src/veritriage/
                      report sections), search.py (deterministic search). Imports
                      the core; NOTHING in the core imports it (guard-enforced).
   mcp/               M8: tools.py (transport-agnostic tool table over services,
-                     17 tools incl. 5 M9 orchestration tools, register_tool
-                     extension point), server.py (dependency-free MCP stdio
-                     JSON-RPC transport). Serve with `veritriage mcp`.
+                     24 tools incl. 5 M9 orchestration + 7 M10 collaboration
+                     tools, register_tool extension point), server.py
+                     (dependency-free MCP stdio JSON-RPC transport). Serve with
+                     `veritriage mcp`.
   orchestrator/      M9: steps.py (InvestigationStep + register_step + 10 built-in
                      steps), profiles.py (register_profile + 7 profiles +
                      build_plan), engine.py (deterministic execution, trace,
                      attribution, run_profile + resume_profile). Imports ONLY the
                      workspace + models vocabulary; nothing below imports it.
+  collab/            M10: model.py (frozen InvestigationBundle + fingerprint),
+                     exchange.py (.vtb export/import), validation.py, review.py,
+                     annotation.py (register_annotation_target + 6 kinds),
+                     comparison.py (explanatory diff). Imports ONLY workspace +
+                     models; nothing below imports it. Reached via WorkspaceServices
+                     (lazy import); clients never import collab directly.
   history/           M4: record.py (RegressionRecord + git metadata capture),
                      engine.py (HistoryEngine: record + additive augment).
   signatures/        M4: deterministic FailureSignature + digest.
@@ -396,10 +447,11 @@ src/veritriage/
   dashboard/         M4: DashboardGenerator (self-contained dashboard.html).
   reports/           HTML report generator (Jinja2, self-contained, light/dark).
   cli/main.py        Typer app: analyze, parsers, knowledge, waveform, context,
-                     investigate, impact, mcp, sessions, run, profiles, dashboard,
-                     history, feedback, version. Since M8 the CLI is a
-                     WorkspaceServices client and never imports veritriage.pipeline
-                     directly; since M9 `run`/`profiles` drive the orchestrator.
+                     investigate, impact, mcp, sessions, run, profiles, bundle
+                     (export/import/validate/compare), review, annotate, dashboard,
+                     history, feedback, version. Since M8 a WorkspaceServices client
+                     (never imports veritriage.pipeline); M9 run/profiles drive the
+                     orchestrator; M10 bundle/review/annotate drive collaboration.
   pipeline.py        analyze(): parse -> graph -> classify -> knowledge -> reason.
                      Waveform artifacts and context manifests parse like any other
                      (registered Parsers); waveform + engineering reasoning rules
@@ -427,10 +479,11 @@ v3 adds `reasoning` (M3) → v4 adds `history` (M4) → v5 adds `knowledge`
 (M5) → v6 adds `waveform` (M6) → v7 adds `engineering` (M7). Bump on any
 breaking field change; tests assert the current value (`test_cli.py`).
 
-**Current test count: 256**, across `tests/test_*.py`: parsers, rules,
+**Current test count: 278**, across `tests/test_*.py`: parsers, rules,
 graph, artifact parsers, models, report, CLI, AI boundary, reasoning,
 history, analytics, knowledge, waveform, engineering, workspace/MCP,
-orchestrator. Run with `.venv/bin/python -m pytest -q` from the repo root.
+orchestrator, collaboration. Run with `.venv/bin/python -m pytest -q` from
+the repo root.
 
 ---
 
@@ -602,6 +655,6 @@ PyPI to reserve the name. Requires explicit user go-ahead.
   pass any time a new milestone lands, to keep the "why v3+ needs no
   restructuring" style tables current (this file's section 3 is a faster
   place to check current state than re-reading every doc).
-- No known failing tests or open bugs as of M9 (256/256 passing).
+- No known failing tests or open bugs as of M10 / v1.0.0 (278/278 passing).
 - `analyzers/` package (superseded by `reasoning/ai.py` at M3) was already
   removed; if it ever reappears from a bad merge, delete it again.

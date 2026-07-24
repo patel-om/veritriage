@@ -116,6 +116,17 @@ veritriage profiles                                        # list investigation 
 veritriage run fast-triage simulation.log                  # thirty-second triage
 veritriage run full-investigation simulation.log dump.vcd -o out/   # everything on
 
+# Collaboration (M10): investigations as portable, reviewable artifacts.
+# Export a session to a self-contained bundle (only normalized objects, no raw
+# waveform or log files), hand it to another engineer, and review/annotate/
+# validate/compare/continue it on any machine.
+veritriage bundle export <session-id> -o inv.vtb
+veritriage bundle import inv.vtb                           # loads the session, continue anywhere
+veritriage bundle validate inv.vtb                         # integrity + referential checks
+veritriage bundle compare a.vtb b.vtb                      # explains what changed
+veritriage review inv.vtb --verdict approved --reviewer asha --comment "ship it"
+veritriage annotate inv.vtb --target evidence:ev-abc123 --author diego --text "check this"
+
 # Add an AI summary grounded in the evidence graph
 veritriage analyze simulation.log -o out/ --ai
 
@@ -193,9 +204,11 @@ untouched by design
 
 ## Roadmap (documented, not built)
 
-The core is stable; future work is integrations over existing seams: a VS
-Code extension and other IDE clients as thin consumers of `WorkspaceServices`,
-the MCP server (v0.8.0), and orchestration profiles (v0.9.0) -> more waveform
+As of v1.0.0 the core is stable and its public API (WorkspaceServices, the MCP
+tool table, the orchestrator step/profile registries, and the `.vtb` bundle
+format) is frozen; future work is integrations over existing seams: a VS Code
+extension and other IDE clients as thin consumers of `WorkspaceServices`, the
+MCP server, orchestration profiles, and portable bundles -> more waveform
 adapters (FSDB, FST, WLF, transaction DBs) behind the existing
 `WaveformAdapter` interface -> more context providers (GitHub, GitLab,
 Perforce, Gerrit, Jenkins, Jira, DOORS) behind the existing `ContextProvider`
