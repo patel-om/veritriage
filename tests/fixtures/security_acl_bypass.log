@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test security_acl_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/sec_chk.sv(40) @ 1400000: uvm_test_top.env.sec [SEC] non-secure master issued a write to the secure region 0x4000_0000
+UVM_ERROR /tb/sec_chk.sv(48) @ 1500000: uvm_test_top.env.sec [SEC] secure region write accepted while the core was in non-secure state, protection was not applied
+--- UVM Report Summary ---
+UVM_ERROR :   1

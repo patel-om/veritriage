@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test perf_latency_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/perf_chk.sv(40) @ 1000000: uvm_test_top.env.perf [PERF] read-return latency budget for this path is 1000 ns
+UVM_ERROR /tb/perf_chk.sv(48) @ 1100000: uvm_test_top.env.perf [PERF] measured read latency 3200 ns exceeds the SLA budget, latency over budget under contention
+--- UVM Report Summary ---
+UVM_ERROR :   1

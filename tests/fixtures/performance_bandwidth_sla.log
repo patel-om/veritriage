@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test perf_bandwidth_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/perf_chk.sv(60) @ 1200000: uvm_test_top.env.perf [PERF] sustained throughput floor for this port is 8 GB/s
+UVM_ERROR /tb/perf_chk.sv(68) @ 1300000: uvm_test_top.env.perf [PERF] sustained bandwidth 3 GB/s below the floor, throughput short of the SLA due to insufficient outstanding transactions
+--- UVM Report Summary ---
+UVM_ERROR :   1

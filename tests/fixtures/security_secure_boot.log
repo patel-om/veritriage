@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test security_secure_boot_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/sec_chk.sv(60) @ 1600000: uvm_test_top.env.sec [SEC] bootrom handed off control to the stage 2 image
+UVM_ERROR /tb/sec_chk.sv(68) @ 1700000: uvm_test_top.env.sec [SEC] boot stage 2 launched with its verification bypassed, chain of trust broken
+--- UVM Report Summary ---
+UVM_ERROR :   1

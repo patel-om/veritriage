@@ -8,6 +8,7 @@ like any other evidence.
 
 from __future__ import annotations
 
+import operator
 import re
 from functools import lru_cache
 
@@ -28,10 +29,37 @@ from veritriage.models import StateProgress, StateProjection
 #: Score of a pattern whose required clauses all matched but no optional did.
 _BASE_SCORE = 0.7
 
+#: Comparison operators a NumericConstraint may use.
+_NUMERIC_OPS = {
+    "gt": operator.gt,
+    "ge": operator.ge,
+    "lt": operator.lt,
+    "le": operator.le,
+    "eq": operator.eq,
+    "ne": operator.ne,
+}
+
+#: First signed integer/decimal in a piece of text (numeric-clause fallback).
+_NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?")
+
 
 @lru_cache(maxsize=512)
 def _compile(pattern: str) -> re.Pattern[str]:
     return re.compile(pattern, re.IGNORECASE)
+
+
+def _extract_number(match: re.Match[str]) -> float | None:
+    """The number a numeric clause compares: first capture group, else the
+    first number anywhere in the matched span."""
+    for group in match.groups():
+        if group is None:
+            continue
+        try:
+            return float(group)
+        except (TypeError, ValueError):
+            continue
+    fallback = _NUMBER_RE.search(match.group(0))
+    return float(fallback.group(0)) if fallback else None
 
 
 def _clause_matches(clause: EvidenceClause, node: EvidenceNode) -> bool:
@@ -40,10 +68,16 @@ def _clause_matches(clause: EvidenceClause, node: EvidenceNode) -> bool:
     if clause.must_fail and not node.is_failing:
         return False
     regex = _compile(clause.pattern)
-    if regex.search(node.description):
-        return True
-    raw = node.raw_line
-    return raw is not None and bool(regex.search(raw))
+    match = regex.search(node.description)
+    if match is None and node.raw_line is not None:
+        match = regex.search(node.raw_line)
+    if match is None:
+        return False
+    if clause.numeric is not None:
+        value = _extract_number(match)
+        if value is None or not _NUMERIC_OPS[clause.numeric.op](value, clause.numeric.value):
+            return False
+    return True
 
 
 def _clause_hits(clause: EvidenceClause, nodes: list[EvidenceNode]) -> list[str]:
@@ -81,6 +115,13 @@ def match_patterns(knowledge: KnowledgeGraph, graph: EvidenceGraph) -> list[Patt
         ok = True
         for clause in pattern.required:
             hits = _clause_hits(clause, nodes)
+            if clause.absent:
+                # Omission: this expected marker must NOT appear. There is no
+                # node to cite for an absence, so it contributes no evidence.
+                if hits:
+                    ok = False
+                    break
+                continue
             if not hits:
                 ok = False
                 break

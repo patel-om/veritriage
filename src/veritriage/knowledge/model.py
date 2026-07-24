@@ -79,13 +79,32 @@ class StateMachine(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class NumericConstraint(BaseModel):
+    """A numeric comparison a clause applies to a value parsed from evidence.
+
+    The clause's ``pattern`` locates the value in the matched text (via its
+    first capture group, or the first number in the match if there is no
+    group); this constraint decides whether that value satisfies the
+    threshold. Units are the pack author's responsibility: bound the unit in
+    the ``pattern`` and express ``value`` in the same unit. This is what lets
+    a pattern say "latency over 1000 ns" or "bandwidth under 8 GB/s" instead
+    of only "the word latency appears".
+    """
+
+    op: Literal["gt", "ge", "lt", "le", "eq", "ne"] = Field(
+        description="Comparison of the parsed value against ``value``."
+    )
+    value: float = Field(description="Threshold the parsed value is compared to.")
+
+
 class EvidenceClause(BaseModel):
     """One matchable requirement of a failure pattern.
 
     Clauses are the deterministic vocabulary patterns are written in: a
     regex over normalized evidence descriptions, optionally narrowed by
-    artifact type or failure status. No clause ever reads a raw file; it
-    matches Evidence Graph nodes only.
+    artifact type or failure status, optionally tightened by a numeric
+    threshold, and optionally inverted to require *absence*. No clause ever
+    reads a raw file; it matches Evidence Graph nodes only.
     """
 
     name: str = Field(description="Short label, e.g. 'timeout observed'.")
@@ -95,6 +114,17 @@ class EvidenceClause(BaseModel):
     )
     must_fail: bool = Field(
         default=False, description="Only error/fatal evidence may satisfy this clause."
+    )
+    numeric: NumericConstraint | None = Field(
+        default=None,
+        description="Optional numeric threshold applied to a number parsed from the match; "
+        "the node matches only when both the regex hits and the number satisfies the constraint.",
+    )
+    absent: bool = Field(
+        default=False,
+        description="Omission semantics. As a *required* clause, it is satisfied when NO node "
+        "matches (a first-class 'this expected marker never appeared'), instead of requiring a "
+        "hit. Ignored on forbidden clauses, which already mean 'must not appear'.",
     )
 
 

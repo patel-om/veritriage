@@ -79,6 +79,9 @@ EXPECTED_PACK_IDS = {
     "low-power",
     "dft",
     "x-propagation",
+    # Numeric / omission clause upgrade unlocks these
+    "performance",
+    "security",
 }
 
 #: fixture -> pattern id it must match. One entry per protocol/domain pack
@@ -158,6 +161,11 @@ _PATTERN_FIXTURES = {
     "dft_mbist.log": "dft.mbist-failure",
     "xprop_uninitialized.log": "x-propagation.uninitialized",
     "xprop_control.log": "x-propagation.x-through-control",
+    # Numeric / omission clause upgrade
+    "performance_latency_sla.log": "performance.latency-sla-miss",
+    "performance_bandwidth_sla.log": "performance.bandwidth-sla-miss",
+    "security_acl_bypass.log": "security.access-control-bypassed",
+    "security_secure_boot.log": "security.secure-boot-unverified",
 }
 
 
@@ -184,13 +192,13 @@ def test_knowledge_base_has_real_breadth():
     # packs, each with multiple patterns/playbooks, not one pack doing all
     # the work.
     packs = load_packs()
-    assert len(packs) >= 40
+    assert len(packs) >= 42
     total_patterns = sum(len(p.patterns) for p in packs)
     total_playbooks = sum(len(p.playbooks) for p in packs)
     total_concepts = sum(len(p.concepts) for p in packs)
-    assert total_patterns >= 86
-    assert total_playbooks >= 84
-    assert total_concepts >= 84
+    assert total_patterns >= 90
+    assert total_playbooks >= 88
+    assert total_concepts >= 88
     # Breadth, not one pack padding the count: every pack pulls real weight.
     for pack in packs:
         assert pack.patterns, f"{pack.id} has no failure patterns"
@@ -478,3 +486,71 @@ def test_reasoning_executes_with_ai_disabled(fixture_log):
     bare = ReasoningEngine().reason(outcome.graph)
     assert bare.hypotheses
     assert not any(s.name.startswith("knowledge:") for s in bare.signals)
+
+
+# --- Numeric and omission clause upgrade -----------------------------------
+
+
+def _node(node_id: str, description: str, failing: bool = True):
+    """A minimal evidence node for clause-matching unit tests."""
+    from veritriage.graph.model import ArtifactType, EvidenceNode
+    from veritriage.models import Severity
+
+    return EvidenceNode(
+        id=node_id,
+        artifact_type=ArtifactType.SIMULATION_LOG,
+        description=description,
+        severity=Severity.ERROR if failing else Severity.INFO,
+        source_path="unit-test",
+    )
+
+
+def _graph(*nodes):
+    from veritriage.graph.graph import EvidenceGraph
+
+    return EvidenceGraph(nodes={n.id: n for n in nodes})
+
+
+def _match_ids(pattern_id: str, graph) -> set[str]:
+    knowledge = KnowledgeGraph.build()
+    return {m.pattern.id for m in match_patterns(knowledge, graph)}
+
+
+def test_numeric_clause_fires_only_over_threshold():
+    """A numeric clause compares the parsed value, not just the keyword: the
+    latency SLA-miss pattern fires at 3200 ns and stays silent at 200 ns."""
+    over = _graph(_node("n1", "measured read latency 3200 ns exceeds the SLA budget"))
+    under = _graph(_node("n2", "measured read latency 200 ns, comfortably within budget"))
+    assert "performance.latency-sla-miss" in _match_ids("performance.latency-sla-miss", over)
+    assert "performance.latency-sla-miss" not in _match_ids("performance.latency-sla-miss", under)
+
+
+def test_numeric_clause_direction_for_bandwidth_floor():
+    """The bandwidth pattern uses a less-than constraint: 3 GB/s is a miss,
+    12 GB/s is not."""
+    low = _graph(_node("n1", "sustained bandwidth 3 GB/s below the floor"))
+    high = _graph(_node("n2", "sustained bandwidth 12 GB/s above the floor"))
+    assert "performance.bandwidth-sla-miss" in _match_ids("x", low)
+    assert "performance.bandwidth-sla-miss" not in _match_ids("x", high)
+
+
+def test_absent_clause_requires_the_marker_to_be_missing():
+    """An omission (absent) required clause is satisfied only when the expected
+    marker never appears: the access-control bypass fires when no check is
+    logged, and is blocked the moment a passing check shows up."""
+    bypass = _graph(_node("n1", "secure region write accepted while the core was in non-secure state"))
+    assert "security.access-control-bypassed" in _match_ids("x", bypass)
+
+    with_check = _graph(
+        _node("n1", "secure region write accepted while the core was in non-secure state"),
+        _node("n2", "access-control check passed for the request", failing=False),
+    )
+    assert "security.access-control-bypassed" not in _match_ids("x", with_check)
+
+
+def test_numeric_and_absent_are_backward_compatible_defaults():
+    """Existing clauses carry neither field: numeric defaults to None and
+    absent to False, so a plain presence clause behaves exactly as before."""
+    clause = EvidenceClause(name="plain", pattern=r"timeout")
+    assert clause.numeric is None
+    assert clause.absent is False
