@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test ucie_bringup_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/ucie_chk.sv(40) @ 2800000: uvm_test_top.env.ucie [UCIE] die-to-die link entered parameter exchange over the sideband
+UVM_ERROR /tb/ucie_chk.sv(48) @ 2900000: uvm_test_top.env.ucie [UCIE] UCIe link training stuck: sideband never acknowledged the calibration stage, main-band bring-up did not advance (timeout)
+--- UVM Report Summary ---
+UVM_ERROR :   1

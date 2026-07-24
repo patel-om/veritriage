@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test ace_barrier_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/ace_chk.sv(60) @ 1600000: uvm_test_top.env.ace [ACE] barrier transaction issued between two coherent writes
+UVM_ERROR /tb/ace_chk.sv(68) @ 1700000: uvm_test_top.env.ace [ACE] barrier ordering violation: a post-barrier access was observed before a pre-barrier access, interconnect did not honor the barrier
+--- UVM Report Summary ---
+UVM_ERROR :   1

@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test ace_coherency_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/ace_chk.sv(40) @ 1400000: uvm_test_top.env.ace [ACE] coherent read issued a snoop on AC to master 2
+UVM_ERROR /tb/ace_chk.sv(48) @ 1500000: uvm_test_top.env.ace [ACE] snoop response missing: AC snoop to master 2 got no CR response, CRVALID never asserted and the coherent read cannot complete
+--- UVM Report Summary ---
+UVM_ERROR :   1

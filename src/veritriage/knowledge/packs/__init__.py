@@ -6,13 +6,17 @@ reasoning code, matcher code, or report code changes.
 """
 
 from veritriage.knowledge.packs import (  # noqa: F401
+    ace,
     ahb,
     apb,
     axi,
+    axi_stream,
     cdc,
     chi,
     coherency,
     coverage,
+    cxl,
+    noc,
     pcie,
     reset,
     riscv,
@@ -24,5 +28,6 @@ from veritriage.knowledge.packs import (  # noqa: F401
     riscv_vector,
     sva,
     tilelink,
+    ucie,
     uvm,
 )

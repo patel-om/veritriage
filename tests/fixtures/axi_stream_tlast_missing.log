@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test axi_stream_packet_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/strm_chk.sv(40) @ 1000000: uvm_test_top.env.strm [STRM] stream packet 12 has transferred 64 beats without TLAST
+UVM_ERROR /tb/strm_chk.sv(48) @ 1100000: uvm_test_top.env.strm [STRM] packet never terminated: TLAST never asserted, stream packet boundary lost and the sink is waiting for end of frame
+--- UVM Report Summary ---
+UVM_ERROR :   1

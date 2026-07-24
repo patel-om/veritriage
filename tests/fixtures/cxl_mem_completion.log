@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test cxl_mem_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/cxl_chk.sv(60) @ 2600000: uvm_test_top.env.cxl [CXL] M2S read request to device-attached memory issued with tag 9
+UVM_ERROR /tb/cxl_chk.sv(68) @ 2700000: uvm_test_top.env.cxl [CXL] CXL.mem request without completion: M2S tag 9 never returned an S2M response, host memory access outstanding forever
+--- UVM Report Summary ---
+UVM_ERROR :   1

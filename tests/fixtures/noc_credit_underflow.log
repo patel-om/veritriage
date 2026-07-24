@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test noc_flowcontrol_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/noc_chk.sv(60) @ 2000000: uvm_test_top.env.noc [NOC] link L2 credit count diverged from downstream buffer occupancy
+UVM_ERROR /tb/noc_chk.sv(68) @ 2100000: uvm_test_top.env.noc [NOC] credit underflow on link L2: no credits available but flits ready, flow control credit lost on the return path
+--- UVM Report Summary ---
+UVM_ERROR :   1

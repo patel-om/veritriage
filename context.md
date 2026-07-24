@@ -399,8 +399,14 @@ the report. Backward compatible; minor-version releases.
   timeout). 14 new patterns/playbooks, 3 new state machines, 14 fixtures.
   Breadth floors in `test_knowledge.py` raised (>=18 packs, >=40 patterns/
   playbooks/concepts). 19 packs / 44 patterns total; 298 tests (up from 278).
-- **Tier 2 (v1.2.0) - Interconnect & NoC.** Planned: AXI-Stream, ACE/ACE-Lite,
-  NoC fundamentals, CXL, UCIe.
+- **Tier 2 (v1.2.0) - Interconnect & NoC.** Five new packs: `axi-stream`
+  (TLAST packet framing, backpressure deadlock), `ace` (snoop CR response,
+  barrier ordering), `noc` (routing deadlock, credit underflow, HOL blocking
+  + packet-lifecycle state machine), `cxl` (Flex Bus negotiation, CXL.mem
+  completion), `ucie` (die-to-die training, lane repair/degrade). 11 new
+  patterns/playbooks, 1 state machine, 11 fixtures. Floors raised (>=24
+  packs, >=55 patterns). 24 packs / 55 patterns / 53 playbooks / 54 concepts;
+  314 tests.
 - **Tier 3 (v1.3.0) - Memory & Serial IO.** Planned: DDR/LPDDR+DFI, HBM; USB,
   Ethernet/PCS, MIPI, I2C/I3C, SPI, UART, JTAG. (Memory-timing SLA and
   performance patterns coordinate with the future numeric-clause upgrade in

@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test noc_stress_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/noc_chk.sv(40) @ 1800000: uvm_test_top.env.noc [NOC] four routers report full input buffers, no flit advanced for 5000 cycles
+UVM_ERROR /tb/noc_chk.sv(48) @ 1900000: uvm_test_top.env.noc [NOC] routing deadlock: cyclic channel dependency, packets blocked in a circular hold-and-wait across routers R0 R1 R2 R3
+--- UVM Report Summary ---
+UVM_ERROR :   1

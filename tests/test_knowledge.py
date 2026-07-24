@@ -55,6 +55,12 @@ EXPECTED_PACK_IDS = {
     "riscv-interrupts",
     "riscv-pmp",
     "riscv-debug",
+    # Tier 2 - Interconnect & NoC
+    "axi-stream",
+    "ace",
+    "noc",
+    "cxl",
+    "ucie",
 }
 
 #: fixture -> pattern id it must match. One entry per protocol/domain pack
@@ -87,6 +93,18 @@ _PATTERN_FIXTURES = {
     "riscv_pmp_napot.log": "riscv-pmp.napot-granularity",
     "riscv_debug_abstract_cmd.log": "riscv-debug.abstract-command-fail",
     "riscv_debug_halt_timeout.log": "riscv-debug.halt-request-timeout",
+    # Tier 2 - Interconnect & NoC
+    "axi_stream_tlast_missing.log": "axi-stream.tlast-missing",
+    "axi_stream_tready_stall.log": "axi-stream.tready-stall",
+    "ace_snoop_response_missing.log": "ace.snoop-response-missing",
+    "ace_barrier_ordering.log": "ace.barrier-ordering-violation",
+    "noc_routing_deadlock.log": "noc.routing-deadlock",
+    "noc_credit_underflow.log": "noc.credit-underflow",
+    "noc_hol_blocking.log": "noc.hol-blocking",
+    "cxl_link_training.log": "cxl.link-training-failed",
+    "cxl_mem_completion.log": "cxl.mem-completion-missing",
+    "ucie_link_training.log": "ucie.link-training-stuck",
+    "ucie_lane_repair.log": "ucie.lane-repair-failed",
 }
 
 
@@ -113,13 +131,13 @@ def test_knowledge_base_has_real_breadth():
     # packs, each with multiple patterns/playbooks, not one pack doing all
     # the work.
     packs = load_packs()
-    assert len(packs) >= 18
+    assert len(packs) >= 24
     total_patterns = sum(len(p.patterns) for p in packs)
     total_playbooks = sum(len(p.playbooks) for p in packs)
     total_concepts = sum(len(p.concepts) for p in packs)
-    assert total_patterns >= 40
-    assert total_playbooks >= 40
-    assert total_concepts >= 40
+    assert total_patterns >= 55
+    assert total_playbooks >= 52
+    assert total_concepts >= 53
     # Breadth, not one pack padding the count: every pack pulls real weight.
     for pack in packs:
         assert pack.patterns, f"{pack.id} has no failure patterns"

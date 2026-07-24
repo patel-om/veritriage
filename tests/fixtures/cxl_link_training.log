@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test cxl_bringup_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/cxl_chk.sv(40) @ 2400000: uvm_test_top.env.cxl [CXL] Flex Bus port trained as PCIe, entering alternate protocol negotiation
+UVM_ERROR /tb/cxl_chk.sv(48) @ 2500000: uvm_test_top.env.cxl [CXL] CXL link training failed: alternate protocol not negotiated, Flex Bus mode mismatch between ports, link fell back to PCIe
+--- UVM Report Summary ---
+UVM_ERROR :   1
