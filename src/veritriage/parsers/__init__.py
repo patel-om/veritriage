@@ -16,10 +16,12 @@ from veritriage.parsers.simulation_log import SimulationLogParser
 from veritriage.parsers.compile_log import CompileLogParser
 from veritriage.parsers.coverage import CoverageParser
 from veritriage.parsers.test_metadata import TestMetadataParser
+from veritriage.parsers.formal_result import FormalResultParser
 
 __all__ = [
     "CompileLogParser",
     "CoverageParser",
+    "FormalResultParser",
     "Parser",
     "ParseResult",
     "SimulationLogParser",

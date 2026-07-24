@@ -1,9 +1,11 @@
 """Formal property verification (FPV) Knowledge Pack.
 
 Assertion-based formal: assert/assume/cover properties, vacuity, and bounded
-proofs. This pack reads the *result* of a formal run as it appears in a tool
-log (counterexample, vacuous pass, inconclusive bound); ingesting native
-proof artifacts would want a dedicated ArtifactType (context.md section 5.1).
+proofs. This pack encodes the domain knowledge (counterexample, vacuous pass,
+inconclusive bound); the verdicts it matches arrive as first-class evidence
+either from a tool log or, since v1.6.0, natively via the ``formal_result``
+parser (ArtifactType.FORMAL_RESULT), which ingests a ``*.formal.json`` and
+phrases each node so these patterns match. Parser first, pack on top.
 """
 
 from __future__ import annotations

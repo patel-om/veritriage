@@ -1,0 +1,11 @@
+{
+  "tool": "JasperGold",
+  "version": "2024.03",
+  "properties": [
+    {"name": "p_grant_onehot", "status": "falsified", "engine": "Bmc", "depth": 12, "module": "axi_arb", "message": "grant vector not one-hot"},
+    {"name": "p_forward_progress", "status": "inconclusive", "depth": 40, "module": "axi_arb"},
+    {"name": "p_req_ack", "status": "vacuous", "module": "axi_arb", "message": "antecedent never satisfied"},
+    {"name": "p_fifo_safe", "status": "proven", "engine": "Pdr"},
+    {"name": "c_wr_hit", "status": "covered"}
+  ]
+}

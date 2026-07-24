@@ -30,6 +30,10 @@ class ArtifactType(str, Enum):
     #: Produced by the Engineering Context Engine since M7 (v0.7.0): commits,
     #: CI runs, and other engineering change, normalized by context providers.
     ENGINEERING_CHANGE = "engineering_change"
+    #: Produced by the formal-result parser since v1.6.0: per-property outcomes
+    #: (proven / falsified / vacuous / inconclusive / covered) from a formal
+    #: property-verification tool, ingested natively rather than scraped from a log.
+    FORMAL_RESULT = "formal_result"
 
 
 class RelationType(str, Enum):
