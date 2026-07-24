@@ -97,9 +97,16 @@ veritriage analyze simulation.log run.wave.json -o out/
 # manifest any CI can export); correlated changes become evidence.
 veritriage analyze simulation.log -o out/                  # context on by default
 veritriage analyze simulation.log --no-context -o out/     # opt out
-veritriage investigate simulation.log                      # context + timeline + investigation view
+veritriage investigate simulation.log                      # context + timeline + investigation view (saves a session)
 veritriage impact                                          # tests likely hit by current changes (from history)
 veritriage context                                         # what the providers see here
+
+# Workspace and MCP: VeriTriage as an external investigation service.
+# `veritriage mcp` serves 12 investigation tools over stdio, so Claude Code,
+# Cursor, or any MCP host can analyze regressions, walk evidence, search the
+# knowledge base, and query history: the CLI and MCP share the same services.
+veritriage mcp                                             # MCP tool server (stdio)
+veritriage sessions                                        # list persisted investigation sessions
 
 # Add an AI summary grounded in the evidence graph
 veritriage analyze simulation.log -o out/ --ai
@@ -178,13 +185,14 @@ untouched by design
 
 ## Roadmap (documented, not built)
 
-More waveform adapters (FSDB, FST, WLF, transaction DBs) behind the existing
-`WaveformAdapter` interface -> more context providers (GitHub, GitLab,
-Perforce, Gerrit, Jenkins, Jira, DOORS) behind the existing `ContextProvider`
-interface -> spec retrieval as new node types -> learned similarity embeddings
-behind the existing `EmbeddingProvider` interface -> deeper AI reasoning over
-the correlated graph -> VS Code extension, Slack integration, GitHub Action,
-MCP server.
+The core is stable; future work is integrations over existing seams: a VS
+Code extension and other IDE clients as thin consumers of `WorkspaceServices`
+and the MCP server (shipped in v0.8.0) -> more waveform adapters (FSDB, FST,
+WLF, transaction DBs) behind the existing `WaveformAdapter` interface -> more
+context providers (GitHub, GitLab, Perforce, Gerrit, Jenkins, Jira, DOORS)
+behind the existing `ContextProvider` interface -> learned similarity
+embeddings behind the existing `EmbeddingProvider` interface -> Slack
+integration, GitHub Action.
 
 ## License
 

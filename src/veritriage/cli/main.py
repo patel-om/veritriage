@@ -15,9 +15,14 @@ import veritriage
 from veritriage.models import AnalysisReport, Severity
 from veritriage.reasoning import AIReasoner, AIReasoningError
 from veritriage.parsers import available_parsers
-from veritriage.pipeline import analyze as run_analysis
 from veritriage.reports import HtmlReportGenerator
 from veritriage.utils import write_json
+
+# The CLI is a client of the workspace service layer (M8): investigation
+# logic lives in WorkspaceServices, shared verbatim with the MCP server.
+# Nothing here may import veritriage.pipeline directly; an architecture test
+# in tests/test_workspace.py pins that.
+from veritriage.workspace import DEFAULT_SESSION_ROOT, WorkspaceServices
 
 #: Default location of the regression database, relative to the working tree.
 DEFAULT_DB = Path(".veritriage") / "regressions.db"
@@ -73,14 +78,19 @@ def analyze(
     """Analyze verification artifacts into an evidence graph and reports."""
     engineering = _gather_context(context_root) if context else None
     try:
-        outcome = run_analysis(artifacts, parser_name=parser, engineering=engineering)
+        session = WorkspaceServices(db=db).investigate(
+            artifacts,
+            parser_name=parser,
+            engineering=engineering,
+            record_history=history,
+        )
     except (FileNotFoundError, ValueError) as exc:
         _err.print(f"[red]error:[/red] {escape(str(exc))}")
         raise typer.Exit(code=2)
     except KeyError as exc:
         _err.print(f"[red]error:[/red] {escape(str(exc.args[0]))}")
         raise typer.Exit(code=2)
-    report, graph = outcome
+    report, graph = session.report, session.graph
 
     if ai and report.reasoning is not None:
         try:
@@ -94,15 +104,6 @@ def analyze(
         except AIReasoningError as exc:
             # AI is optional by design: warn and continue with the deterministic result.
             _err.print(f"[yellow]warning:[/yellow] AI review skipped - {escape(str(exc))}")
-
-    if history:
-        from veritriage.history import HistoryEngine, capture_execution_metadata
-        from veritriage.storage import RegressionStore
-
-        with RegressionStore(db) as store:
-            engine = HistoryEngine(store)
-            _, context = engine.record(outcome, execution=capture_execution_metadata())
-            engine.augment(outcome, context)
 
     json_path = write_json(report, output_dir / "analysis.json")
     graph_path = write_json(graph, output_dir / "evidence_graph.json")
@@ -165,6 +166,52 @@ def waveform() -> None:
             cls.format,
             ", ".join(cls.file_patterns) or "-",
             ", ".join(sorted(c.value for c in cls.capabilities)) or "-",
+        )
+    console.print(table)
+
+
+@app.command()
+def mcp(
+    session_root: Path = typer.Option(
+        None, "--session-root", help="Sessions directory (default .veritriage/sessions)."
+    ),
+    db: Path = typer.Option(DEFAULT_DB, "--db", help="Regression database file."),
+) -> None:
+    """Serve VeriTriage as an MCP tool server over stdio.
+
+    Point an MCP host (Claude Code, an IDE) at `veritriage mcp` and it can
+    analyze regressions, walk evidence, search knowledge, and query history
+    through the same services the CLI uses.
+    """
+    from veritriage.mcp import McpStdioServer
+
+    services = WorkspaceServices(session_root=session_root, db=db)
+    McpStdioServer(services).serve_forever()
+
+
+@app.command()
+def sessions(
+    session_root: Path = typer.Option(
+        None, "--session-root", help="Sessions directory (default .veritriage/sessions)."
+    ),
+) -> None:
+    """List persisted investigation sessions."""
+    services = WorkspaceServices(session_root=session_root)
+    stored = services.list_sessions()
+    if not stored:
+        console.print("[dim]no sessions stored yet; run `veritriage investigate`[/dim]")
+        return
+    table = Table(title=f"Investigation sessions ({len(stored)})")
+    for column in ("Session", "Created", "Classification", "Confidence", "Test", "Inputs"):
+        table.add_column(column)
+    for summary in stored:
+        table.add_row(
+            summary.session_id,
+            summary.created_at[:16],
+            summary.classification,
+            f"{summary.confidence}%",
+            summary.test_name or "-",
+            str(len(summary.input_files)),
         )
     console.print(table)
 
@@ -241,13 +288,18 @@ def investigate(
 ) -> None:
     """Analyze with engineering context and print the investigation view."""
     engineering = _gather_context(context_root)
+    services = WorkspaceServices()
     try:
-        outcome = run_analysis(artifacts, engineering=engineering)
+        session = services.investigate(artifacts, engineering=engineering)
     except (FileNotFoundError, ValueError) as exc:
         _err.print(f"[red]error:[/red] {escape(str(exc))}")
         raise typer.Exit(code=2)
-    report, graph = outcome
+    report, graph = session.report, session.graph
+    bundle = services.save(session)
     _print_summary(report)
+    console.print(
+        f"[dim]session[/dim] [bold]{session.session_id}[/bold] [dim]saved to[/dim] {bundle}"
+    )
 
     view = report.engineering
     if view is None:

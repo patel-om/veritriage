@@ -9,7 +9,7 @@ what's next" record.
 
 Repo: https://github.com/patel-om/veritriage (public, Apache-2.0)
 Local path: `/Users/ompatel/Documents/veritriage`
-Current version: **0.7.0**
+Current version: **0.8.0**
 Portfolio integration: card + sample artifacts in
 `/Users/ompatel/Documents/Om Portfolio` (`index.html`,
 `veritriage-sample-report.html`, `veritriage-sample-dashboard.html`)
@@ -252,6 +252,44 @@ the real repo). Design doc: `docs/ENGINEERING_CONTEXT_ENGINE.md` (approved
 before implementation; scope, git-law migration, and default-on context all
 user-confirmed).
 
+### Milestone 8 (v0.8.0) - Verification Workspace & MCP Platform
+The Verification Intelligence Core is declared architecturally complete in
+*shape* (packs/adapters/providers still grow through registries); M8 builds
+around it, never into it. New `workspace/` package: `session.py`
+(`InvestigationSession`, frozen: report + graph + deterministic content-hash
+`session_id`; identity never depends on wall-clock), `persistence.py`
+(`SessionStore`, one JSON bundle per session under `.veritriage/sessions/`,
+byte-identical re-save), `services.py` (`WorkspaceServices`: THE public API:
+investigate with optional record_history so history augmentation happens
+before the session freezes, save/load/list, summary, evidence queries +
+bounded graph view, matched patterns, waveform observations, engineering
+context, timeline with graph-built fallback, read-only similar_regressions
+probe, deterministic compare), `navigation.py` (every report section
+individually addressable: one hypothesis/pattern/observation/commit/timeline
+event/evidence node, None on miss), `search.py` (deterministic evidence +
+knowledge-base search). New `mcp/` package: `tools.py` (transport-agnostic
+tool table, 12 v1 tools, all routing through services; `register_tool` is the
+new-endpoint extension point) and `server.py` (dependency-free MCP stdio
+transport: newline-delimited JSON-RPC 2.0 subset: initialize, ping,
+tools/list, tools/call; protocol version 2024-11-05; tool failures return
+isError results, never crash the loop). **The CLI became client number one:**
+analyze/investigate route through WorkspaceServices, cli/main.py no longer
+imports veritriage.pipeline (AST-verified guard), investigate saves and
+prints its session id, and new commands `mcp` (serve stdio) and `sessions`
+(list bundles) landed. No report schema change (v7 stays; sessions wrap it).
+No core file changed except cli/main.py. Architecture guards:
+cli-and-mcp-share-services, sessions-immutable, public-API-never-exposes-raw
+-parser-objects (AST import analysis: the third prose-vs-code guard lesson,
+now done properly), no-engine-knows-workspace, workspace-never-depends-on-AI,
+mcp-tools-route-through-services, and the crown jewel
+`test_new_endpoint_needs_only_a_tool` (a throwaway tool registered inside the
+test is served through the real transport with zero core changes). 25 new
+tests (238 total). Review decisions (user-confirmed): hand-rolled stdio over
+the official SDK (zero deps, offline-testable; SDK adapter is a future thin
+file), two cohesive packages instead of the spec's seven examples, full
+CLI-as-client refactor. Design doc: `docs/WORKSPACE_PLATFORM.md` (approved
+before implementation).
+
 ---
 
 ## 3. Current architecture map
@@ -288,6 +326,15 @@ src/veritriage/
                      impact), ownership.py (routing only), timeline.py +
                      investigation.py (pure graph projections). Never imported
                      by reasoning; architecture tests enforce isolation.
+  workspace/         M8: session.py (immutable InvestigationSession), services.py
+                     (WorkspaceServices, THE public API every client consumes),
+                     persistence.py (session bundles), navigation.py (addressable
+                     report sections), search.py (deterministic search). Imports
+                     the core; NOTHING in the core imports it (guard-enforced).
+  mcp/               M8: tools.py (transport-agnostic tool table over services,
+                     12 tools, register_tool extension point), server.py
+                     (dependency-free MCP stdio JSON-RPC transport). Serve with
+                     `veritriage mcp`.
   history/           M4: record.py (RegressionRecord + git metadata capture),
                      engine.py (HistoryEngine: record + additive augment).
   signatures/        M4: deterministic FailureSignature + digest.
@@ -298,7 +345,9 @@ src/veritriage/
   dashboard/         M4: DashboardGenerator (self-contained dashboard.html).
   reports/           HTML report generator (Jinja2, self-contained, light/dark).
   cli/main.py        Typer app: analyze, parsers, knowledge, waveform, context,
-                     investigate, impact, dashboard, history, feedback, version.
+                     investigate, impact, mcp, sessions, dashboard, history,
+                     feedback, version. Since M8 the CLI is a WorkspaceServices
+                     client and never imports veritriage.pipeline directly.
   pipeline.py        analyze(): parse -> graph -> classify -> knowledge -> reason.
                      Waveform artifacts and context manifests parse like any other
                      (registered Parsers); waveform + engineering reasoning rules
@@ -326,10 +375,10 @@ v3 adds `reasoning` (M3) → v4 adds `history` (M4) → v5 adds `knowledge`
 (M5) → v6 adds `waveform` (M6) → v7 adds `engineering` (M7). Bump on any
 breaking field change; tests assert the current value (`test_cli.py`).
 
-**Current test count: 213**, across `tests/test_*.py`: parsers, rules,
+**Current test count: 238**, across `tests/test_*.py`: parsers, rules,
 graph, artifact parsers, models, report, CLI, AI boundary, reasoning,
-history, analytics, knowledge, waveform, engineering. Run with
-`.venv/bin/python -m pytest -q` from the repo root.
+history, analytics, knowledge, waveform, engineering, workspace/MCP. Run
+with `.venv/bin/python -m pytest -q` from the repo root.
 
 ---
 
@@ -479,13 +528,18 @@ class, proven by `test_new_system_needs_only_a_provider`. The canonical
 dedicated provider. Live API providers remain unbuilt (organization
 specific; the user hasn't asked).
 
-### 5.8 Front-ends over `pipeline.analyze()`
-VS Code extension, Slack integration, GitHub Action, MCP server - all
-named in the README roadmap since M1, none started. All are thin clients
-over the existing library entry point (`veritriage.pipeline.analyze`) and
-the CLI; no core-architecture work needed first except possibly waveform
-metadata (5.5) if the front-end wants to jump straight to a waveform
-viewer from a recommendation.
+### 5.8 Front-ends and clients - MCP DONE in M8 (v0.8.0); rest are thin clients
+The MCP server shipped in M8 (`veritriage mcp`, 12 tools over stdio), and
+the client seam moved up a level: front-ends are no longer "thin clients
+over `pipeline.analyze()`" but thin clients over `WorkspaceServices` (in
+process) or the MCP tools (out of process); `pipeline.analyze()` is now an
+internal detail only the service layer calls. Remaining, in rough order of
+value: **VS Code extension** (everything it needs exists: sessions,
+navigation getters for lazy trees, search; it is a rendering shell),
+Claude Code / Cursor onboarding docs (an `mcpServers` config snippet is all
+a user needs), Slack integration, GitHub Action (run `veritriage analyze`
+in CI, upload the session bundle + report as artifacts). None require core
+or workspace changes; `test_new_endpoint_needs_only_a_tool` is the proof.
 
 ### 5.9 Packaging
 Standing offer, not executed: publish an initial `veritriage` release to
@@ -496,6 +550,6 @@ PyPI to reserve the name. Requires explicit user go-ahead.
   pass any time a new milestone lands, to keep the "why v3+ needs no
   restructuring" style tables current (this file's section 3 is a faster
   place to check current state than re-reading every doc).
-- No known failing tests or open bugs as of M7 (213/213 passing).
+- No known failing tests or open bugs as of M8 (238/238 passing).
 - `analyzers/` package (superseded by `reasoning/ai.py` at M3) was already
   removed; if it ever reappears from a bad merge, delete it again.

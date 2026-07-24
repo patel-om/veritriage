@@ -144,6 +144,7 @@ reasoning engine; it just sees more nodes.
 | Assertion-log / richer coverage parsers | new `Parser` subclasses emitting fragments |
 | A new waveform simulator (FSDB, FST, WLF, transaction DB) | one `WaveformAdapter` subclass, nothing else (see the two laws below) |
 | A new engineering system (GitHub, GitLab, Perforce, Gerrit, Jenkins, Jira, DOORS) | one `ContextProvider` subclass, nothing else (see the M7 laws below) |
+| A new client or API endpoint (VS Code, Cursor, internal tools) | a `WorkspaceServices` consumer or one MCP tool via `register_tool`, nothing else (M8) |
 | Spec retrieval | new node types + correlation passes |
 | New protocol/domain expertise (ACE, AXI-Stream, power management, security, formal, company-internal protocols, ...) | a Knowledge Pack module with `@register_pack` |
 | Multi-agent / deeper AI reasoning | consumers of `to_reasoning_view()`, behind the same boundary |
@@ -209,6 +210,27 @@ The success criterion is proven executably by
 `test_new_system_needs_only_a_provider`: a brand-new engineering system
 reaches evidence, correlation, reasoning, and the report by adding only a
 provider class.
+
+## Workspace & MCP (M8): the core becomes a service
+
+As of M8 the Verification Intelligence Core is considered stable and
+feature-complete in *shape* (packs, adapters, and providers still grow
+through their registries). Access happens through the workspace:
+`WorkspaceServices` is the single public API, the immutable
+`InvestigationSession` (report + graph + deterministic identity) is the
+canonical exchange object, and the CLI and the MCP server
+(`veritriage mcp`, stdio JSON-RPC) are peer clients of the same services.
+Every report section is individually addressable through
+`workspace.navigation` without regenerating anything. Full design:
+[WORKSPACE_PLATFORM.md](WORKSPACE_PLATFORM.md).
+
+The dependency law, pinned by `tests/test_workspace.py`: dependencies point
+outward only. `workspace/` and `mcp/` import the core; no core package
+imports them (`test_no_engine_knows_workspace`), the CLI and MCP share
+services and never import the pipeline directly
+(`test_cli_and_mcp_share_services`, AST-verified), sessions are immutable,
+the public API never exposes raw parser/adapter/provider objects, and a new
+endpoint is one registered tool (`test_new_endpoint_needs_only_a_tool`).
 
 ## Known limitations
 
