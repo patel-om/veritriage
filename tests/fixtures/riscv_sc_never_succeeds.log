@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test riscv_lrsc_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/lsu_chk.sv(60) @ 1200000: uvm_test_top.env.lsu [AMO] reservation set on address 0x8000_1000 by lr.w
+UVM_ERROR /tb/lsu_chk.sv(72) @ 1300000: uvm_test_top.env.lsu [AMO] store-conditional never succeeds: reservation lost on every SC attempt (livelock), no forward progress
+--- UVM Report Summary ---
+UVM_ERROR :   1

@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test riscv_amo_litmus_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/mem_chk.sv(88) @ 1400000: uvm_test_top.env.mem [AMO] amoadd.w.aqrl issued with acquire/release annotation
+UVM_ERROR /tb/mem_chk.sv(95) @ 1500000: uvm_test_top.env.mem [AMO] AMO ordering violation: amoadd.w.aqrl release semantics not enforced, a later load reordered ahead of the atomic
+--- UVM Report Summary ---
+UVM_ERROR :   1

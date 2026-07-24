@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test riscv_pmp_napot_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/pmp_chk.sv(70) @ 2800000: uvm_test_top.env.pmp [PMP] pmpaddr3 encodes a NAPOT region, checking decoded base/size
+UVM_ERROR /tb/pmp_chk.sv(78) @ 2900000: uvm_test_top.env.pmp [PMP] PMP NAPOT granularity wrong: region boundary decoded 4KB larger than the pmpaddr encoding specifies
+--- UVM Report Summary ---
+UVM_ERROR :   1

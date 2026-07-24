@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test riscv_rvwmo_litmus_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/mem_chk.sv(100) @ 1600000: uvm_test_top.env.mem [MEM] two-hart litmus test, checking preserved program order
+UVM_ERROR /tb/mem_chk.sv(108) @ 1700000: uvm_test_top.env.mem [MEM] RVWMO ordering violation: store to A observed out of order after load from B, a forbidden outcome for this litmus test
+--- UVM Report Summary ---
+UVM_ERROR :   1

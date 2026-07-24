@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test riscv_pmp_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/pmp_chk.sv(50) @ 2600000: uvm_test_top.env.pmp [PMP] U-mode store to region 2 (no W permission) issued
+UVM_ERROR /tb/pmp_chk.sv(58) @ 2700000: uvm_test_top.env.pmp [PMP] PMP access-fault missed: U-mode store without W permission completed instead of faulting
+--- UVM Report Summary ---
+UVM_ERROR :   1

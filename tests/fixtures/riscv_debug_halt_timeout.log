@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test riscv_debug_halt_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/dm_chk.sv(60) @ 3200000: uvm_test_top.env.dm [DM] haltreq asserted in dmcontrol, waiting for dmstatus.allhalted
+UVM_ERROR /tb/dm_chk.sv(68) @ 3300000: uvm_test_top.env.dm [DM] haltreq asserted but the hart never halted: dmstatus.allhalted never set, halt request timeout
+--- UVM Report Summary ---
+UVM_ERROR :   1

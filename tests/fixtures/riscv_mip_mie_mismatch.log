@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test riscv_interrupt_mask_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/irq_chk.sv(30) @ 2400000: uvm_test_top.env.irq [IRQ] mie.MTIE cleared, timer interrupt pending in mip
+UVM_ERROR /tb/irq_chk.sv(38) @ 2500000: uvm_test_top.env.irq [IRQ] interrupt taken while masked: mie.MTIE clear but the timer interrupt trapped anyway
+--- UVM Report Summary ---
+UVM_ERROR :   1

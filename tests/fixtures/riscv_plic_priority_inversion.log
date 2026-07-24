@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test riscv_plic_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/plic_chk.sv(40) @ 2000000: uvm_test_top.env.plic [PLIC] sources 3 and 7 pending, priorities 2 and 5, threshold 1
+UVM_ERROR /tb/plic_chk.sv(48) @ 2100000: uvm_test_top.env.plic [PLIC] PLIC priority inversion: source 3 (priority 2) claimed before the pending higher-priority source 7 (priority 5)
+--- UVM Report Summary ---
+UVM_ERROR :   1

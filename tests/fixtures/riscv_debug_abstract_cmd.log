@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test riscv_debug_abstract_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/dm_chk.sv(40) @ 3000000: uvm_test_top.env.dm [DM] abstract command issued to read GPR x10 via abstract access
+UVM_ERROR /tb/dm_chk.sv(48) @ 3100000: uvm_test_top.env.dm [DM] abstract command failed: cmderr=3 (exception) on GPR read via abstract access
+--- UVM Report Summary ---
+UVM_ERROR :   1

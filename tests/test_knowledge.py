@@ -48,6 +48,13 @@ EXPECTED_PACK_IDS = {
     "coherency",
     "riscv-privilege",
     "coverage",
+    # Tier 1 - RISC-V & CPU/ISA depth
+    "riscv-atomics",
+    "riscv-vector",
+    "riscv-memory-model",
+    "riscv-interrupts",
+    "riscv-pmp",
+    "riscv-debug",
 }
 
 #: fixture -> pattern id it must match. One entry per protocol/domain pack
@@ -65,6 +72,21 @@ _PATTERN_FIXTURES = {
     "axi_write_response_missing.log": "axi.write-response-missing",
     "axi_exclusive_fail.log": "axi.exclusive-fail",
     "sva_assertion_before_timeout.log": "sva.assertion-before-timeout",
+    # Tier 1 - RISC-V & CPU/ISA depth
+    "riscv_sc_never_succeeds.log": "riscv-atomics.sc-never-succeeds",
+    "riscv_amo_ordering.log": "riscv-atomics.amo-ordering-violation",
+    "riscv_vector_illegal_vtype.log": "riscv-vector.illegal-vtype",
+    "riscv_vector_tail_mask.log": "riscv-vector.tail-mask-corruption",
+    "riscv_vector_vl_mismatch.log": "riscv-vector.vl-mismatch",
+    "riscv_rvwmo_ordering.log": "riscv-memory-model.ordering-violation",
+    "riscv_missing_fence.log": "riscv-memory-model.missing-fence",
+    "riscv_plic_priority_inversion.log": "riscv-interrupts.plic-priority-inversion",
+    "riscv_plic_claim_complete.log": "riscv-interrupts.missed-claim-complete",
+    "riscv_mip_mie_mismatch.log": "riscv-interrupts.mip-mie-mismatch",
+    "riscv_pmp_access_fault.log": "riscv-pmp.access-fault-missed",
+    "riscv_pmp_napot.log": "riscv-pmp.napot-granularity",
+    "riscv_debug_abstract_cmd.log": "riscv-debug.abstract-command-fail",
+    "riscv_debug_halt_timeout.log": "riscv-debug.halt-request-timeout",
 }
 
 
@@ -91,13 +113,13 @@ def test_knowledge_base_has_real_breadth():
     # packs, each with multiple patterns/playbooks, not one pack doing all
     # the work.
     packs = load_packs()
-    assert len(packs) >= 12
+    assert len(packs) >= 18
     total_patterns = sum(len(p.patterns) for p in packs)
     total_playbooks = sum(len(p.playbooks) for p in packs)
     total_concepts = sum(len(p.concepts) for p in packs)
-    assert total_patterns >= 25
-    assert total_playbooks >= 25
-    assert total_concepts >= 25
+    assert total_patterns >= 40
+    assert total_playbooks >= 40
+    assert total_concepts >= 40
     # Breadth, not one pack padding the count: every pack pulls real weight.
     for pack in packs:
         assert pack.patterns, f"{pack.id} has no failure patterns"

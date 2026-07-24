@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test riscv_vector_config_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/vec_chk.sv(50) @ 900000: uvm_test_top.env.vec [VEC] vsetvli requested reserved LMUL/SEW combination
+UVM_ERROR /tb/vec_chk.sv(58) @ 1000000: uvm_test_top.env.vec [VEC] illegal vtype not flagged: reserved LMUL/SEW combination accepted, vill was not set and vl was not forced to zero
+--- UVM Report Summary ---
+UVM_ERROR :   1

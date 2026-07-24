@@ -380,6 +380,36 @@ implementation).
 integrations and ecosystem adoption over existing seams (section 5.8), never
 core expansion.
 
+### Knowledge Base Expansion program (post-1.0, content-only)
+
+A user-approved drive to make the Verification Knowledge Engine *elite in
+breadth*: grow from 13 packs toward a broad, deep library across four domain
+tiers. Every tier is additive content exactly like the M5.1 expansion - new
+`knowledge/packs/` modules plus one realistic fixture per pattern - with zero
+change to `EvidenceClause`, the matcher, the Knowledge Graph, reasoning, or
+the report. Backward compatible; minor-version releases.
+
+- **Tier 1 (v1.1.0) - RISC-V & CPU/ISA depth.** Six new packs beside the
+  existing `riscv-privilege`: `riscv-atomics` (LR/SC forward progress, AMO
+  aq/rl ordering), `riscv-vector` (illegal vtype, tail/mask undisturbed
+  policy, vl element-count), `riscv-memory-model` (RVWMO ordering, FENCE
+  enforcement), `riscv-interrupts` (PLIC priority inversion, claim/complete
+  gateway, mie/mip masking), `riscv-pmp` (access-fault miss, NAPOT/TOR
+  boundary decode), `riscv-debug` (abstract-command cmderr, halt-request
+  timeout). 14 new patterns/playbooks, 3 new state machines, 14 fixtures.
+  Breadth floors in `test_knowledge.py` raised (>=18 packs, >=40 patterns/
+  playbooks/concepts). 19 packs / 44 patterns total; 298 tests (up from 278).
+- **Tier 2 (v1.2.0) - Interconnect & NoC.** Planned: AXI-Stream, ACE/ACE-Lite,
+  NoC fundamentals, CXL, UCIe.
+- **Tier 3 (v1.3.0) - Memory & Serial IO.** Planned: DDR/LPDDR+DFI, HBM; USB,
+  Ethernet/PCS, MIPI, I2C/I3C, SPI, UART, JTAG. (Memory-timing SLA and
+  performance patterns coordinate with the future numeric-clause upgrade in
+  section 5.1; presence-expressible modes ship first.)
+- **Tier 4 (v1.4.0) - Methodology & fundamentals depth.** Planned: UVM
+  RAL/phasing/TLM, formal (FPV), low-power/UPF, DFT/MBIST, X-propagation.
+  (Low-power wants a new power-domain state machine; formal may want a new
+  ArtifactType - both flagged in 5.1, designed before patterns.)
+
 ---
 
 ## 3. Current architecture map

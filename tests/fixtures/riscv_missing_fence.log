@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test riscv_fence_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/mem_chk.sv(120) @ 1800000: uvm_test_top.env.mem [MEM] fence rw,rw executed between the paired accesses
+UVM_ERROR /tb/mem_chk.sv(128) @ 1900000: uvm_test_top.env.mem [MEM] fence never enforced: a successor access bypassed the fence, store buffer not drained before the ordered load
+--- UVM Report Summary ---
+UVM_ERROR :   1
