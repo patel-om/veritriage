@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test hbm_refresh_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/hbm_chk.sv(60) @ 1600000: uvm_test_top.env.hbm [HBM] per-channel refresh scheduled on channel 1 with an access in flight
+UVM_ERROR /tb/hbm_chk.sv(68) @ 1700000: uvm_test_top.env.hbm [HBM] HBM refresh conflict: per-channel refresh collided with an in-flight access on channel 1, blocking the read
+--- UVM Report Summary ---
+UVM_ERROR :   1

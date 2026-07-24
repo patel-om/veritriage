@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test hbm_channel_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/hbm_chk.sv(40) @ 1400000: uvm_test_top.env.hbm [HBM] transaction addressed to pseudo-channel 2 under interleave mode 1
+UVM_ERROR /tb/hbm_chk.sv(48) @ 1500000: uvm_test_top.env.hbm [HBM] HBM channel routing wrong: transaction for pseudo-channel 2 crossed into channel 3, landing on unrelated memory
+--- UVM Report Summary ---
+UVM_ERROR :   1

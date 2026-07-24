@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test ddr_refresh_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/ddr_chk.sv(60) @ 1200000: uvm_test_top.env.ddr [DDR] long write burst held off the refresh scheduler on rank 1
+UVM_ERROR /tb/ddr_chk.sv(68) @ 1300000: uvm_test_top.env.ddr [DDR] auto-refresh missed: tREFI interval violated, refresh not issued in time on rank 1
+--- UVM Report Summary ---
+UVM_ERROR :   1

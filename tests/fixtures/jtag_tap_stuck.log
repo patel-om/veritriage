@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test jtag_tap_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/jtag_chk.sv(40) @ 4200000: uvm_test_top.env.jtag [JTAG] TMS sequence driven to navigate toward Shift-DR
+UVM_ERROR /tb/jtag_chk.sv(48) @ 4300000: uvm_test_top.env.jtag [JTAG] JTAG TAP controller stuck: TMS sequence wrong, state machine did not reach Shift-DR, subsequent scan invalid
+--- UVM Report Summary ---
+UVM_ERROR :   1

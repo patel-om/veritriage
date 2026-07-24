@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test mipi_dphy_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/mipi_chk.sv(40) @ 2600000: uvm_test_top.env.mipi [DPHY] data lane 0 attempted LP-to-HS entry
+UVM_ERROR /tb/mipi_chk.sv(48) @ 2700000: uvm_test_top.env.mipi [DPHY] MIPI D-PHY HS entry failed: sync word not detected, lane 0 never entered high-speed and no HS data received
+--- UVM Report Summary ---
+UVM_ERROR :   1

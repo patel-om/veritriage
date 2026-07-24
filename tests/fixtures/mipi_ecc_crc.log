@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test mipi_csi_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/mipi_chk.sv(60) @ 2800000: uvm_test_top.env.mipi [CSI] long packet received on virtual channel 0, checking header ECC
+UVM_ERROR /tb/mipi_chk.sv(68) @ 2900000: uvm_test_top.env.mipi [CSI] MIPI CSI-2 ECC error: packet header ECC uncorrectable, payload CRC mismatch, frame data cannot be trusted
+--- UVM Report Summary ---
+UVM_ERROR :   1

@@ -61,6 +61,16 @@ EXPECTED_PACK_IDS = {
     "noc",
     "cxl",
     "ucie",
+    # Tier 3 - Memory & Serial IO
+    "ddr",
+    "hbm",
+    "usb",
+    "ethernet",
+    "mipi",
+    "i2c-i3c",
+    "spi",
+    "uart",
+    "jtag",
 }
 
 #: fixture -> pattern id it must match. One entry per protocol/domain pack
@@ -105,6 +115,25 @@ _PATTERN_FIXTURES = {
     "cxl_mem_completion.log": "cxl.mem-completion-missing",
     "ucie_link_training.log": "ucie.link-training-stuck",
     "ucie_lane_repair.log": "ucie.lane-repair-failed",
+    # Tier 3 - Memory & Serial IO
+    "ddr_timing_violation.log": "ddr.timing-violation",
+    "ddr_refresh_missed.log": "ddr.refresh-missed",
+    "hbm_channel_crosstalk.log": "hbm.channel-crosstalk",
+    "hbm_refresh_conflict.log": "hbm.refresh-conflict",
+    "usb_handshake_missing.log": "usb.handshake-missing",
+    "usb_ltssm_stuck.log": "usb.ltssm-stuck",
+    "ethernet_fcs_error.log": "ethernet.fcs-error",
+    "ethernet_block_lock.log": "ethernet.block-lock-lost",
+    "mipi_hs_sync.log": "mipi.hs-sync-fail",
+    "mipi_ecc_crc.log": "mipi.ecc-crc-error",
+    "i2c_missing_ack.log": "i2c.missing-ack",
+    "i3c_ibi_lost.log": "i3c.ibi-lost",
+    "spi_mode_mismatch.log": "spi.mode-mismatch",
+    "spi_cs_timing.log": "spi.cs-timing",
+    "uart_framing_error.log": "uart.framing-error",
+    "uart_overrun.log": "uart.overrun",
+    "jtag_tap_stuck.log": "jtag.tap-stuck",
+    "jtag_ir_dr_mismatch.log": "jtag.ir-dr-mismatch",
 }
 
 
@@ -131,13 +160,13 @@ def test_knowledge_base_has_real_breadth():
     # packs, each with multiple patterns/playbooks, not one pack doing all
     # the work.
     packs = load_packs()
-    assert len(packs) >= 24
+    assert len(packs) >= 33
     total_patterns = sum(len(p.patterns) for p in packs)
     total_playbooks = sum(len(p.playbooks) for p in packs)
     total_concepts = sum(len(p.concepts) for p in packs)
-    assert total_patterns >= 55
-    assert total_playbooks >= 52
-    assert total_concepts >= 53
+    assert total_patterns >= 72
+    assert total_playbooks >= 70
+    assert total_concepts >= 70
     # Breadth, not one pack padding the count: every pack pulls real weight.
     for pack in packs:
         assert pack.patterns, f"{pack.id} has no failure patterns"

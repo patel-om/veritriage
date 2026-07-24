@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test i2c_master_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/i2c_chk.sv(40) @ 3000000: uvm_test_top.env.i2c [I2C] master issued START and address byte 0x50 with write
+UVM_ERROR /tb/i2c_chk.sv(48) @ 3100000: uvm_test_top.env.i2c [I2C] I2C no ACK: addressed device 0x50 did not drive acknowledge, NACK on the address byte, transfer aborted
+--- UVM Report Summary ---
+UVM_ERROR :   1

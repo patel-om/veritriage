@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test ddr_controller_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/ddr_chk.sv(40) @ 1000000: uvm_test_top.env.ddr [DDR] activate to rank 0 bank 3 followed closely by a read
+UVM_ERROR /tb/ddr_chk.sv(48) @ 1100000: uvm_test_top.env.ddr [DDR] DRAM timing violation: tRCD not met, activate to read issued too soon on rank 0 bank 3
+--- UVM Report Summary ---
+UVM_ERROR :   1

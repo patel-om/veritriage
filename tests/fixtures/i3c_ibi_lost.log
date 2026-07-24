@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test i3c_ibi_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/i3c_chk.sv(60) @ 3200000: uvm_test_top.env.i3c [I3C] target 0x0A raised an in-band interrupt during available slot
+UVM_ERROR /tb/i3c_chk.sv(68) @ 3300000: uvm_test_top.env.i3c [I3C] I3C IBI lost: in-band interrupt arbitration lost by target 0x0A, IBI dropped before the header and not retried
+--- UVM Report Summary ---
+UVM_ERROR :   1

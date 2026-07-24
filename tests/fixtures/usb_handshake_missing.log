@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test usb_transaction_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/usb_chk.sv(40) @ 1800000: uvm_test_top.env.usb [USB] OUT data packet delivered to endpoint 2, awaiting handshake
+UVM_ERROR /tb/usb_chk.sv(48) @ 1900000: uvm_test_top.env.usb [USB] USB transaction handshake missing: data packet to endpoint 2 got no ACK, handshake never returned and the endpoint stalls
+--- UVM Report Summary ---
+UVM_ERROR :   1

@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test jtag_scan_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/jtag_chk.sv(60) @ 4400000: uvm_test_top.env.jtag [JTAG] shifting the boundary-scan chain, expected length 96 bits
+UVM_ERROR /tb/jtag_chk.sv(68) @ 4500000: uvm_test_top.env.jtag [JTAG] JTAG DR scan mismatch: scan chain length mismatch, instruction register capture wrong, chain does not match expectation
+--- UVM Report Summary ---
+UVM_ERROR :   1

@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test ethernet_mac_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/eth_chk.sv(40) @ 2200000: uvm_test_top.env.eth [ETH] received a 1518-byte frame, recomputing FCS
+UVM_ERROR /tb/eth_chk.sv(48) @ 2300000: uvm_test_top.env.eth [ETH] Ethernet FCS error: frame check sequence mismatch, CRC error on the received frame, dropping it
+--- UVM Report Summary ---
+UVM_ERROR :   1

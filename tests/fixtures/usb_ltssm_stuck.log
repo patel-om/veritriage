@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test usb3_link_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/usb_chk.sv(60) @ 2000000: uvm_test_top.env.usb [USB3] link entered Polling, exchanging training sequences
+UVM_ERROR /tb/usb_chk.sv(68) @ 2100000: uvm_test_top.env.usb [USB3] USB3 link training stuck: LTSSM looping in Recovery, Polling never completed, link never reached U0 (timeout)
+--- UVM Report Summary ---
+UVM_ERROR :   1

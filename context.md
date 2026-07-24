@@ -407,10 +407,17 @@ the report. Backward compatible; minor-version releases.
   patterns/playbooks, 1 state machine, 11 fixtures. Floors raised (>=24
   packs, >=55 patterns). 24 packs / 55 patterns / 53 playbooks / 54 concepts;
   314 tests.
-- **Tier 3 (v1.3.0) - Memory & Serial IO.** Planned: DDR/LPDDR+DFI, HBM; USB,
-  Ethernet/PCS, MIPI, I2C/I3C, SPI, UART, JTAG. (Memory-timing SLA and
-  performance patterns coordinate with the future numeric-clause upgrade in
-  section 5.1; presence-expressible modes ship first.)
+- **Tier 3 (v1.3.0) - Memory & Serial IO.** Nine new packs: `ddr` (command
+  timing, refresh discipline), `hbm` (channel decode, per-channel refresh),
+  `usb` (transaction handshake, USB3 LTSSM), `ethernet` (MAC FCS, PCS block
+  lock), `mipi` (D-PHY HS sync, CSI-2 ECC/CRC), `i2c-i3c` (I2C ACK, I3C IBI),
+  `spi` (CPOL/CPHA, CS framing), `uart` (framing, RX overrun), `jtag` (TAP FSM
+  + IR/DR scan, with a TAP state machine). 18 new patterns/playbooks, 1 state
+  machine, 18 fixtures. As planned, only presence-expressible failure modes
+  ship; memory-timing SLA and performance patterns still wait on the future
+  numeric-clause upgrade (5.1) - each such pack notes this in its docstring.
+  Floors raised (>=33 packs, >=72 patterns). 33 packs / 73 patterns / 71
+  playbooks / 72 concepts; 341 tests.
 - **Tier 4 (v1.4.0) - Methodology & fundamentals depth.** Planned: UVM
   RAL/phasing/TLM, formal (FPV), low-power/UPF, DFT/MBIST, X-propagation.
   (Low-power wants a new power-domain state machine; formal may want a new
