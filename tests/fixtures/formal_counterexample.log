@@ -1,0 +1,6 @@
+JasperGold formal verification session
+INFO: elaborating properties for module axi_arb
+INFO: proving 42 assertions on axi_arb
+UVM_ERROR /fpv/axi_arb.sva(88) @ 0: fpv.axi_arb [FORMAL] property p_grant_onehot failed: formal counterexample found, assertion proven false at depth 12
+--- Formal Summary ---
+UVM_ERROR :   1

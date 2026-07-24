@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test uvm_tlm_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/tlm_chk.sv(40) @ 0: uvm_test_top.env [TLM] checking port connectivity at end_of_elaboration
+UVM_ERROR /tb/tlm_chk.sv(48) @ 0: uvm_test_top.env.agent [TLM] TLM port not connected: driver seq_item_port has no connection to any export, connect_phase missing the bind
+--- UVM Report Summary ---
+UVM_ERROR :   1

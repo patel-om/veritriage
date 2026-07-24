@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test lowpower_retention_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/lp_chk.sv(60) @ 2200000: uvm_test_top.env.lp [UPF] PD_CPU power cycle with retention enabled on the state registers
+UVM_ERROR /tb/lp_chk.sv(68) @ 2300000: uvm_test_top.env.lp [UPF] retention failure: state not retained across the power cycle, save asserted after the supply was removed and the restored value is corrupt
+--- UVM Report Summary ---
+UVM_ERROR :   1

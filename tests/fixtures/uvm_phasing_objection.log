@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test uvm_phasing_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/phase_chk.sv(40) @ 9000000: uvm_test_top.env [PHASE] run_phase still active at global timeout, one objection outstanding
+UVM_ERROR /tb/phase_chk.sv(48) @ 9500000: uvm_test_top.env [PHASE] objection never dropped by seqr, run_phase did not end and the simulation hit the global timeout
+--- UVM Report Summary ---
+UVM_ERROR :   1

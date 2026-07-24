@@ -71,6 +71,14 @@ EXPECTED_PACK_IDS = {
     "spi",
     "uart",
     "jtag",
+    # Tier 4 - Methodology & fundamentals depth
+    "uvm-ral",
+    "uvm-phasing",
+    "uvm-tlm",
+    "formal",
+    "low-power",
+    "dft",
+    "x-propagation",
 }
 
 #: fixture -> pattern id it must match. One entry per protocol/domain pack
@@ -134,6 +142,22 @@ _PATTERN_FIXTURES = {
     "uart_overrun.log": "uart.overrun",
     "jtag_tap_stuck.log": "jtag.tap-stuck",
     "jtag_ir_dr_mismatch.log": "jtag.ir-dr-mismatch",
+    # Tier 4 - Methodology & fundamentals depth
+    "uvm_ral_mirror_mismatch.log": "uvm-ral.mirror-mismatch",
+    "uvm_ral_access_policy.log": "uvm-ral.access-policy-violation",
+    "uvm_phasing_objection.log": "uvm-phasing.objection-not-dropped",
+    "uvm_phasing_order.log": "uvm-phasing.phase-order-violation",
+    "uvm_tlm_not_connected.log": "uvm-tlm.port-not-connected",
+    "uvm_tlm_dropped.log": "uvm-tlm.transaction-dropped",
+    "formal_counterexample.log": "formal.counterexample",
+    "formal_vacuous.log": "formal.vacuous-pass",
+    "formal_inconclusive.log": "formal.inconclusive-bound",
+    "lowpower_isolation.log": "low-power.isolation-missing",
+    "lowpower_retention.log": "low-power.retention-failure",
+    "dft_scan_chain.log": "dft.scan-chain-broken",
+    "dft_mbist.log": "dft.mbist-failure",
+    "xprop_uninitialized.log": "x-propagation.uninitialized",
+    "xprop_control.log": "x-propagation.x-through-control",
 }
 
 
@@ -160,13 +184,13 @@ def test_knowledge_base_has_real_breadth():
     # packs, each with multiple patterns/playbooks, not one pack doing all
     # the work.
     packs = load_packs()
-    assert len(packs) >= 33
+    assert len(packs) >= 40
     total_patterns = sum(len(p.patterns) for p in packs)
     total_playbooks = sum(len(p.playbooks) for p in packs)
     total_concepts = sum(len(p.concepts) for p in packs)
-    assert total_patterns >= 72
-    assert total_playbooks >= 70
-    assert total_concepts >= 70
+    assert total_patterns >= 86
+    assert total_playbooks >= 84
+    assert total_concepts >= 84
     # Breadth, not one pack padding the count: every pack pulls real weight.
     for pack in packs:
         assert pack.patterns, f"{pack.id} has no failure patterns"

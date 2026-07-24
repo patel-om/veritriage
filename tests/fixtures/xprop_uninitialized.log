@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test xprop_init_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/x_chk.sv(40) @ 500000: uvm_test_top.env.xchk [XPROP] status register has no reset, sampled before first write
+UVM_ERROR /tb/x_chk.sv(48) @ 600000: uvm_test_top.env.xchk [XPROP] uninitialized register status read as X before reset, x-propagation carried the unknown into the datapath
+--- UVM Report Summary ---
+UVM_ERROR :   1

@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test uvm_ral_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/ral_chk.sv(40) @ 1000000: uvm_test_top.env.ral [RAL] backdoor write applied to CTRL register with prediction disabled
+UVM_ERROR /tb/ral_chk.sv(48) @ 1100000: uvm_test_top.env.ral [RAL] RAL mirror mismatch: mirrored value differs from the DUT for CTRL, prediction failed to update the register model
+--- UVM Report Summary ---
+UVM_ERROR :   1

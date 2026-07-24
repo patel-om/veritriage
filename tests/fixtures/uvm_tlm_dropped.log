@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test uvm_tlm_analysis_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/tlm_chk.sv(60) @ 1400000: uvm_test_top.env.sb [TLM] scoreboard bounded analysis fifo reached its limit under a burst
+UVM_ERROR /tb/tlm_chk.sv(68) @ 1500000: uvm_test_top.env.sb [TLM] TLM transaction dropped: analysis fifo overflow lost items, scoreboard did not receive the write, checks incomplete
+--- UVM Report Summary ---
+UVM_ERROR :   1

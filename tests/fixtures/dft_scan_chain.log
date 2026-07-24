@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test dft_scan_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/dft_chk.sv(40) @ 3000000: uvm_test_top.env.dft [DFT] shifting scan chain 4, comparing unloaded pattern to loaded pattern
+UVM_ERROR /tb/dft_chk.sv(48) @ 3100000: uvm_test_top.env.dft [DFT] scan chain integrity failure: scan chain 4 length mismatch and shift miscompare, a flop is off the chain
+--- UVM Report Summary ---
+UVM_ERROR :   1

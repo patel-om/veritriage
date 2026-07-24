@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test lowpower_isolation_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/lp_chk.sv(40) @ 2000000: uvm_test_top.env.lp [UPF] power domain PD_GPU beginning power-down sequence
+UVM_ERROR /tb/lp_chk.sv(48) @ 2100000: uvm_test_top.env.lp [UPF] isolation missing: PD_GPU powered down without isolation active, an output crossing the boundary was not isolated and the always-on receiver sampled corrupt data
+--- UVM Report Summary ---
+UVM_ERROR :   1

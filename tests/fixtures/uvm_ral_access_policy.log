@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test uvm_ral_policy_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/ral_chk.sv(60) @ 1200000: uvm_test_top.env.ral [RAL] wrote 1 to STATUS.err field declared write-one-to-clear
+UVM_ERROR /tb/ral_chk.sv(68) @ 1300000: uvm_test_top.env.ral [RAL] field access policy violated: W1C field STATUS.err did not clear on write-one, hardware and model disagree
+--- UVM Report Summary ---
+UVM_ERROR :   1

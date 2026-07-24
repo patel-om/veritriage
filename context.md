@@ -418,10 +418,27 @@ the report. Backward compatible; minor-version releases.
   numeric-clause upgrade (5.1) - each such pack notes this in its docstring.
   Floors raised (>=33 packs, >=72 patterns). 33 packs / 73 patterns / 71
   playbooks / 72 concepts; 341 tests.
-- **Tier 4 (v1.4.0) - Methodology & fundamentals depth.** Planned: UVM
-  RAL/phasing/TLM, formal (FPV), low-power/UPF, DFT/MBIST, X-propagation.
-  (Low-power wants a new power-domain state machine; formal may want a new
-  ArtifactType - both flagged in 5.1, designed before patterns.)
+- **Tier 4 (v1.4.0) - Methodology & fundamentals depth.** Seven new packs:
+  `uvm-ral` (mirror/prediction, field access policy), `uvm-phasing`
+  (objection leak, phase order), `uvm-tlm` (port connectivity, analysis
+  drop), `formal` (counterexample, vacuous pass, inconclusive bound),
+  `low-power` (isolation, retention + the On/Isolate/Retain/Off power-domain
+  state machine), `dft` (scan-chain integrity, MBIST signature),
+  `x-propagation` (uninitialized-X read, X through control). 15 new
+  patterns/playbooks, 1 state machine, 15 fixtures. As flagged: `low-power`
+  ships the new power-domain state machine; `formal` reads formal-tool *log
+  results* only (native proof-artifact ingestion still wants a dedicated
+  ArtifactType, 5.1). Floors raised (>=40 packs, >=86 patterns). Final:
+  **40 packs / 88 patterns / 86 playbooks / 86 concepts / 15 state machines**;
+  363 tests.
+
+**Knowledge Base Expansion complete (v1.4.0).** The engine grew from 13 packs
+to 40 across six domains (interconnect, CPU/ISA, memory, serial IO,
+coherency, methodology/fundamentals) with no change to `EvidenceClause`, the
+matcher, the Knowledge Graph, reasoning, or the report - proving the M5
+registry architecture scales to elite breadth on content alone. Remaining
+future work is the numeric/omission clause upgrade (5.1), which unblocks the
+deferred timing-SLA, performance, and security-by-omission patterns.
 
 ---
 

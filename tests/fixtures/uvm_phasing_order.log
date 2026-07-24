@@ -1,0 +1,7 @@
+Chronologic VCS simulator copyright 1991-2025
+UVM_INFO @ 0: reporter [RNTST] Running test uvm_phasing_order_test...
+UVM_INFO /tb/env.sv(41) @ 0: uvm_test_top.env [ENV] build complete
+UVM_WARNING /tb/phase_chk.sv(60) @ 0: uvm_test_top.env.agent [PHASE] port.connect called during build_phase
+UVM_ERROR /tb/phase_chk.sv(68) @ 0: uvm_test_top.env.agent [PHASE] phase order violation: connect phase work executed out of order during build, port bound before connect_phase
+--- UVM Report Summary ---
+UVM_ERROR :   1

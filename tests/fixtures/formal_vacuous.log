@@ -1,0 +1,6 @@
+JasperGold formal verification session
+INFO: elaborating properties for module fifo_ctrl
+INFO: proving 30 assertions on fifo_ctrl
+UVM_ERROR /fpv/fifo_ctrl.sva(54) @ 0: fpv.fifo_ctrl [FORMAL] property p_req_ack proven vacuously: antecedent never satisfied, vacuity detected so the pass verifies nothing
+--- Formal Summary ---
+UVM_ERROR :   1
