@@ -178,6 +178,13 @@
     outline-offset: 2px;
   }
 
+  /* Narrow viewports: wide tables scroll horizontally within their own row
+     instead of forcing the whole page to scroll (reports are often opened
+     from a shared link on a phone). */
+  @media (max-width: 640px) {
+    table { display: block; overflow-x: auto; white-space: nowrap; }
+  }
+
   /* Print Media Support */
   @media print {
     :root {
@@ -210,6 +217,7 @@
     parsers <code>{{ report.parser_names | join(", ") }}</code>
   </p>
 
+  <main>
   <section>
     <h2>Regression Summary</h2>
     <div class="tiles">
@@ -884,6 +892,7 @@
       moment behavior diverged.
     </div>
   </section>
+  </main>
 
   <footer>VeriTriage · deterministic parsing → rule engine → evidence-backed report. Every conclusion above traces to a log line.</footer>
 </div>
