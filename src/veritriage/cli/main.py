@@ -83,6 +83,12 @@ def analyze(
         help="Run the domain specialists over the deterministic result and attach "
         "their merged second opinion to the report.",
     ),
+    learn: bool = typer.Option(
+        True,
+        "--learn/--no-learn",
+        help="Recall what prior investigations suggest, and calibrate agent influence "
+        "from their track record.",
+    ),
     db: Path = typer.Option(
         DEFAULT_DB, "--db", help="Regression database file (created on first use)."
     ),
@@ -104,6 +110,7 @@ def analyze(
             record_history=history,
             project=project_model,
             agents=agents,
+            learn=learn,
         )
     except (FileNotFoundError, ValueError) as exc:
         _err.print(f"[red]error:[/red] {escape(str(exc))}")
@@ -171,6 +178,57 @@ def knowledge() -> None:
             str(len(pack.state_machines)),
         )
     console.print(table)
+
+
+@app.command()
+def learn(
+    db: Path = typer.Option(DEFAULT_DB, "--db", help="Regression database to learn from."),
+) -> None:
+    """Recompute learning artifacts from the regression database."""
+    services = WorkspaceServices(db=db)
+    stats = services.learn_from_history()
+    if stats is None:
+        _err.print(
+            f"[yellow]warning:[/yellow] no regression database at {escape(str(db))}; "
+            "nothing to learn from yet."
+        )
+        raise typer.Exit(code=0)
+
+    console.print(
+        f"Learned from [bold]{stats.corpus_size}[/bold] recorded regression"
+        f"{'s' if stats.corpus_size != 1 else ''} and "
+        f"[bold]{stats.feedback_count}[/bold] feedback record"
+        f"{'s' if stats.feedback_count != 1 else ''}."
+    )
+    table = Table(title="Learning artifacts")
+    table.add_column("Family")
+    table.add_column("Artifacts", justify="right")
+    for kind, count in sorted(stats.artifacts_by_kind.items()):
+        table.add_row(kind.replace("_", " "), str(count))
+    if not stats.artifacts_by_kind:
+        table.add_row("[dim]none yet[/dim]", "0")
+    console.print(table)
+
+    reliability = services.agent_reliability()
+    rated = [r for r in reliability if r.accuracy is not None]
+    if rated:
+        agents_table = Table(title="Agent reliability")
+        for column in ("Agent", "Led", "Correct", "Accuracy", "Influence"):
+            agents_table.add_column(column)
+        for item in rated:
+            agents_table.add_row(
+                item.agent_id,
+                str(item.times_led),
+                str(item.times_correct),
+                f"{item.accuracy:.0%}" if item.accuracy is not None else "-",
+                f"{item.calibration_multiplier:.2f}x",
+            )
+        console.print(agents_table)
+    else:
+        console.print(
+            "[dim]No engineer feedback yet, so no specialist is calibrated. "
+            "Record judgments with 'veritriage feedback' to enable calibration.[/dim]"
+        )
 
 
 @app.command()

@@ -23,9 +23,14 @@ from pydantic import BaseModel, Field
 if TYPE_CHECKING:
     from veritriage.models import (
         AgentAssessment,
+        AgentReliability,
         AgentResult,
+        LearningArtifact,
+        LearningContext,
+        LearningStatistics,
         LogAnnotationView,
         ProjectContext,
+        ProjectProfile,
         ProjectSummary,
     )
     from veritriage.project import ProjectModel
@@ -91,12 +96,19 @@ class WorkspaceServices:
         session_root: Path | None = None,
         db: Path | None = None,
         project_root: Path | None = None,
+        learning_db: Path | None = None,
     ) -> None:
         from veritriage.project import ProjectStore
 
         self._store = SessionStore(session_root)
         self._db = db
         self._project_store = ProjectStore(project_root)
+        # The learning store defaults beside the regression database. It is a
+        # derived, rebuildable view: deleting it returns the platform to exact
+        # pre-M13 behavior, which is why it is a separate file.
+        self._learning_db = learning_db or (
+            Path(db).parent / "learning.db" if db is not None else None
+        )
 
     # --- Investigations ----------------------------------------------------
 
@@ -149,6 +161,7 @@ class WorkspaceServices:
         now: datetime | None = None,
         project: "ProjectModel | None" = None,
         agents: bool = True,
+        learn: bool = True,
     ) -> InvestigationSession:
         """Run one full analysis and wrap it into an immutable session.
 
@@ -158,12 +171,21 @@ class WorkspaceServices:
         stays immutable from birth. Recording is off by default: MCP and
         library callers get a read-only posture unless they opt in.
         """
+        # Recall runs before the analysis, so agents receive memory and the
+        # Coordinator receives calibration. Nothing here can alter a
+        # deterministic conclusion: recall only supplies context.
+        recalled = (
+            self.recall_learning(project.project_id if project is not None else None)
+            if learn
+            else None
+        )
         outcome = analyze(
             list(paths),
             parser_name=parser_name,
             engineering=engineering,
             project=project,
             agents=agents,
+            learning=recalled,
         )
         if record_history and self._db is not None:
             from veritriage.history import HistoryEngine, capture_execution_metadata
@@ -175,6 +197,10 @@ class WorkspaceServices:
                     outcome, execution=capture_execution_metadata()
                 )
                 engine.augment(outcome, context)
+            # The signature-specific half of recall, once the run has one.
+            # Mirrors HistoryEngine.record/augment, and like it, appends only.
+            if learn and recalled is not None:
+                self._augment_learning(outcome.report, context.signature)
         return make_session(outcome.report, outcome.graph, now=now)
 
     # --- Project intelligence (M11) ----------------------------------------
@@ -245,6 +271,79 @@ class WorkspaceServices:
         if assessment is None:
             return None
         return next((r for r in assessment.results if r.agent_id == agent_id), None)
+
+    # --- Learning Engine (M13) ---------------------------------------------
+    #
+    # The workspace owns the learning store the way it owns the project store
+    # and the regression database: the pipeline never opens one, so analyze()
+    # stays a pure function. Every method degrades to nothing (None, empty
+    # list) when no learning database is configured, so the platform behaves
+    # exactly as it did before M13.
+
+    def _learning_engine(self):
+        """Open a Learning Engine over the workspace's learning store, or None."""
+        if self._learning_db is None:
+            return None
+        from veritriage.learning import LearningEngine, LearningStore
+
+        return LearningEngine(LearningStore(self._learning_db))
+
+    def learn_from_history(self) -> "LearningStatistics | None":
+        """Recompute every learning artifact from the regression database.
+
+        The normal path, not a fallback: learning is a pure function of
+        recorded history, so a full rebuild is both cheap to reason about and
+        the only way a corrected feedback record can fix everything it touches.
+        """
+        if self._db is None or not Path(self._db).is_file():
+            return None
+        engine = self._learning_engine()
+        if engine is None:
+            return None
+        from veritriage.storage import RegressionStore
+
+        with RegressionStore(self._db) as store:
+            return engine.observe(store.all_records(), store.all_feedback())
+
+    def recall_learning(self, project_key: str | None = None) -> "LearningContext | None":
+        """What history suggests for an upcoming investigation."""
+        engine = self._learning_engine()
+        if engine is None:
+            return None
+        recalled = engine.recall(project_key)
+        return None if recalled.is_empty else recalled
+
+    def _augment_learning(self, report, signature_digest: str) -> None:
+        engine = self._learning_engine()
+        if engine is not None:
+            engine.augment(report, signature_digest)
+
+    def learning_statistics(self) -> "LearningStatistics | None":
+        """The shape of what the platform has learned so far."""
+        engine = self._learning_engine()
+        return engine.statistics() if engine is not None else None
+
+    def learning_artifacts(self, kind: str | None = None) -> "list[LearningArtifact]":
+        """Stored learning artifacts, optionally filtered to one family."""
+        engine = self._learning_engine()
+        return list(engine.artifacts(kind)) if engine is not None else []
+
+    def agent_reliability(self) -> "list[AgentReliability]":
+        """Each specialist's track record and the calibration it has earned."""
+        from veritriage.models import AgentReliability as _AgentReliability
+
+        return [
+            a
+            for a in self.learning_artifacts("agent_reliability")
+            if isinstance(a, _AgentReliability)
+        ]
+
+    def project_memory(self, project_key: str | None = None) -> "ProjectProfile | None":
+        """What a project characteristically looks like, learned over its runs."""
+        engine = self._learning_engine()
+        if engine is None:
+            return None
+        return engine.recall(project_key).project_profile
 
     def save(self, session: InvestigationSession) -> Path:
         return self._store.save(session)

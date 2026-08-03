@@ -37,17 +37,53 @@ class RegressionAgent(Agent):
     domain = AgentDomain.REGRESSION
 
     def applies_to(self, context: AgentContext) -> bool:
-        return context.history is not None
+        return context.history is not None or bool(context.learning_hints())
 
     def assess(self, context: AgentContext) -> AgentResult:
         history = context.history
-        assert history is not None  # guarded by applies_to
         failing = context.failing_nodes()
         cited = [n.id for n in failing]
         observations: list[AgentObservation] = []
         hypotheses: list[AgentHypothesis] = []
         recommendations: list[AgentRecommendation] = []
         limitations: list[str] = []
+
+        # Learned memory (M13). Hints inform the observation record; they never
+        # become hypotheses, because a position must cite this run's evidence.
+        for hint in context.learning_hints("investigation_pattern"):
+            observations.append(
+                AgentObservation(
+                    statement=f"Learned from prior investigations: {hint.statement}",
+                    evidence_ids=cited,
+                )
+            )
+        for outcome in (context.learning.common_recommendations if context.learning else []):
+            if outcome.usefulness is None or outcome.useful_votes == 0:
+                continue
+            recommendations.append(
+                AgentRecommendation(
+                    action=outcome.action,
+                    rationale=(
+                        f"Engineers rated this useful in {outcome.useful_votes} of "
+                        f"{outcome.useful_votes + outcome.false_votes} prior investigation(s)."
+                    ),
+                    priority=2,
+                    evidence_ids=cited[:3],
+                )
+            )
+
+        if history is None:
+            if not observations:
+                limitations.append(
+                    "This run was not recorded in the regression database, so no "
+                    "precedent could be established for it."
+                )
+            return self.build(
+                context,
+                observations=observations,
+                recommendations=recommendations,
+                limitations=limitations,
+            )
 
         if history.seen_before:
             observations.append(

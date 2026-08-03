@@ -56,9 +56,16 @@ class AgentCoordinator:
         self,
         agents: list[Agent] | None = None,
         provider: ReasoningProvider | None = None,
+        calibration: dict[str, float] | None = None,
     ) -> None:
         self._agents = agents  # None -> registry defaults, resolved per run
         self._provider = provider or NullProvider()
+        # Historical influence multipliers, learned by the Learning Engine
+        # (M13). Applied here at merge time and never by an agent: an agent
+        # still computes the same position from the same evidence, and only its
+        # influence on the merged finding moves. An empty map (the default)
+        # produces byte-identical output to v1.8.0.
+        self._calibration = dict(calibration or {})
 
     def coordinate(self, context: AgentContext) -> AgentAssessment:
         """Invoke every applicable agent and merge what they concluded."""
@@ -80,7 +87,7 @@ class AgentCoordinator:
             if result.abstained:
                 abstained.append(agent.agent_id)
 
-        findings = _merge_findings(results)
+        findings = _merge_findings(results, self._calibration)
         conflicts = _detect_conflicts(results)
         top = findings[0].category if findings else None
         reasoning_top = (
@@ -145,12 +152,16 @@ class AgentCoordinator:
         )
 
 
-def _merge_findings(results: list[AgentResult]) -> list[AgentFinding]:
+def _merge_findings(
+    results: list[AgentResult], calibration: dict[str, float] | None = None
+) -> list[AgentFinding]:
     """Group agent positions by category and compute traceable confidence.
 
-    final = clamp(base + corroboration + contest, 0.0, MERGED_CEILING)
+    final = clamp(base * calibration + corroboration + contest, 0.0, MERGED_CEILING)
 
     base          the highest confidence any single agent assigned the category
+    calibration   the strongest agent's learned influence multiplier (1.0 by
+                  default, so this term vanishes without a learning store)
     corroboration +CORROBORATION_STEP per additional independent supporter,
                   capped at CORROBORATION_CAP
     contest       -CONTEST_PENALTY once, when another agent leads elsewhere
@@ -158,6 +169,7 @@ def _merge_findings(results: list[AgentResult]) -> list[AgentFinding]:
     Unanimity is capped below certainty on purpose: agreeing specialists can
     still all be reading incomplete evidence.
     """
+    calibration = calibration or {}
     contributing = [r for r in results if r.applicable and not r.abstained]
     leading = {r.leading_category for r in contributing if r.leading_category is not None}
 
@@ -180,6 +192,8 @@ def _merge_findings(results: list[AgentResult]) -> list[AgentFinding]:
         strongest = entries[0]
         supporters = sorted({e[0] for e in entries})
 
+        multiplier = calibration.get(strongest[0], 1.0)
+        calibrated = round(strongest[1] * multiplier, 4)
         contributions = [
             AgentContribution(
                 agent_id=strongest[0],
@@ -187,6 +201,19 @@ def _merge_findings(results: list[AgentResult]) -> list[AgentFinding]:
                 reason="Strongest single position for this category.",
             )
         ]
+        if multiplier != 1.0:
+            direction = "raised" if multiplier > 1.0 else "lowered"
+            contributions.append(
+                AgentContribution(
+                    agent_id=strongest[0],
+                    delta=round(calibrated - strongest[1], 4),
+                    reason=(
+                        f"Historical calibration {direction} this specialist's influence "
+                        f"to {multiplier:.2f}x, from its track record on prior "
+                        "investigations."
+                    ),
+                )
+            )
         extra = len(supporters) - 1
         corroboration = min(CORROBORATION_CAP, CORROBORATION_STEP * extra) if extra > 0 else 0.0
         if corroboration:
@@ -216,7 +243,7 @@ def _merge_findings(results: list[AgentResult]) -> list[AgentFinding]:
             )
 
         final = round(
-            max(0.0, min(MERGED_CEILING, strongest[1] + corroboration + penalty)), 4
+            max(0.0, min(MERGED_CEILING, calibrated + corroboration + penalty)), 4
         )
         if len(supporters) > 1:
             consensus = ConsensusState.AGREEMENT

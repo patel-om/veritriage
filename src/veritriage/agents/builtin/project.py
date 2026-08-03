@@ -51,6 +51,16 @@ class ProjectIntelligenceAgent(Agent):
         recommendations: list[AgentRecommendation] = []
         limitations: list[str] = []
 
+        # Project memory (M13): what this project characteristically does.
+        profile = context.learning.project_profile if context.learning else None
+        if profile is not None and profile.observations > 0:
+            observations.append(
+                AgentObservation(
+                    statement=f"Project memory: {profile.summary}",
+                    evidence_ids=[n.id for n in context.failing_nodes()],
+                )
+            )
+
         if project.identified_protocols:
             named = ", ".join(
                 f"{p.name} on {', '.join(p.interfaces[:2])}"

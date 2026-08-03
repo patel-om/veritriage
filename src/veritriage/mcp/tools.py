@@ -631,3 +631,106 @@ def _list_agents(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
         ],
         "providers": sorted(available_providers()),
     }
+
+
+# --- Learning Engine tools (M13) --------------------------------------------
+
+
+@register_tool(
+    "learn_from_history",
+    "Recompute every learning artifact from the regression database. Learning "
+    "is a pure function of recorded history, so this is idempotent: the same "
+    "records and feedback always produce the same artifacts.",
+    {"type": "object", "properties": {}},
+)
+def _learn_from_history(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    stats = services.learn_from_history()
+    if stats is None:
+        raise KeyError("This workspace has no regression database to learn from")
+    return stats
+
+
+@register_tool(
+    "learning_statistics",
+    "The shape of what the platform has learned: corpus size, feedback count, "
+    "artifacts by family, and the registered learners.",
+    {"type": "object", "properties": {}},
+)
+def _learning_statistics(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    stats = services.learning_statistics()
+    if stats is None:
+        raise KeyError("This workspace has no learning database")
+    return stats
+
+
+@register_tool(
+    "recent_patterns",
+    "Recurring failure modes and evidence combinations learned from history, "
+    "each linked back to the investigations it was learned from. Hints, never "
+    "conclusions.",
+    {
+        "type": "object",
+        "properties": {
+            "kind": {
+                "type": "string",
+                "description": "Artifact family filter, e.g. 'investigation_pattern' "
+                "or 'evidence_pattern'. Omit for every family.",
+            },
+            "limit": {"type": "integer", "description": "Maximum artifacts to return."},
+        },
+    },
+)
+def _recent_patterns(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    kind = arguments.get("kind")
+    limit = int(arguments.get("limit", 20))
+    artifacts = services.learning_artifacts(str(kind) if kind else None)
+    ranked = sorted(artifacts, key=lambda a: (-a.observations, a.artifact_id))
+    return ranked[:limit]
+
+
+@register_tool(
+    "agent_reliability",
+    "Each domain specialist's historical track record and the bounded influence "
+    "multiplier it has earned. Calibration is applied by the Coordinator at "
+    "merge time and never changes what an agent concludes.",
+    {"type": "object", "properties": {}},
+)
+def _agent_reliability(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    return services.agent_reliability()
+
+
+@register_tool(
+    "project_memory",
+    "What a project characteristically looks like, learned over its recorded "
+    "runs: dominant failure classes, common modules, protocols in play, "
+    "recurring signatures, and verification maturity.",
+    {
+        "type": "object",
+        "properties": {
+            "project_key": {
+                "type": "string",
+                "description": "Project ID from a Project Model; omit for the unscoped profile.",
+            }
+        },
+    },
+)
+def _project_memory(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    key = arguments.get("project_key")
+    profile = services.project_memory(str(key) if key else None)
+    if profile is None:
+        raise KeyError("No project memory has been learned yet")
+    return profile
+
+
+@register_tool(
+    "similar_investigations",
+    "Historical regressions resembling a session, from the regression database: "
+    "exact failure-signature matches first, then similarity ranking, each with "
+    "its best known root cause.",
+    _session_arg_with(
+        {"limit": {"type": "integer", "description": "Maximum results (default 5)."}}
+    ),
+)
+def _similar_investigations(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    session = _require_session(services, arguments)
+    return services.similar_regressions(session, limit=int(arguments.get("limit", 5)))

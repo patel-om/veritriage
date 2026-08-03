@@ -490,6 +490,119 @@
   </section>
   {% endif %}
 
+  {% if report.learning and not report.learning.is_empty %}
+  {% set lrn = report.learning %}
+  <section>
+    <h2>What Prior Investigations Suggest</h2>
+    <p class="lead">
+      Learned from {{ lrn.corpus_size }} recorded investigation{{ "s" if lrn.corpus_size != 1 }}.
+      These are hints, never conclusions: nothing here changed the classification, the
+      evidence, or the deterministic reasoning for this run. Every claim links back to the
+      investigations it was learned from.
+    </p>
+    {% if lrn.recurring_pattern %}
+    {% set rec = lrn.recurring_pattern %}
+    <div class="card">
+      <h3>Recurring pattern</h3>
+      <p>{{ rec.summary }}</p>
+      {% if rec.confirmed_root_causes %}
+      <p><strong>Previously confirmed causes:</strong> {{ rec.confirmed_root_causes | join("; ") }}</p>
+      {% endif %}
+      {% if rec.successful_actions %}
+      <h4>Previously successful debug path</h4>
+      <ul class="steps">
+        {% for action in rec.successful_actions %}<li>{{ action }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+      <p class="meta">Learned from {{ rec.observations }} run(s): {{ rec.supporting_regressions | join(", ") }}</p>
+    </div>
+    {% endif %}
+    {% if lrn.hints %}
+    <div class="card">
+      <h3>Historical hints</h3>
+      <div class="graph-scroll">
+      <table>
+        <thead><tr><th>Source</th><th>What history suggests</th><th>Support</th><th>Learned from</th></tr></thead>
+        <tbody>
+        {% for hint in lrn.hints %}
+          <tr>
+            <td><span class="chip">{{ hint.kind | replace("_", " ") }}</span></td>
+            <td>{{ hint.statement }}</td>
+            <td class="num">{{ "%.0f" | format(hint.strength * 100) }}%</td>
+            <td class="num">{{ hint.supporting_regressions | length }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+    {% endif %}
+    {% if lrn.project_profile %}
+    {% set prof = lrn.project_profile %}
+    <div class="card">
+      <h3>Project insight</h3>
+      <p>{{ prof.summary }}</p>
+      <table>
+        <tbody>
+          {% if prof.dominant_classifications %}<tr><td>Dominant failure classes</td><td>{{ prof.dominant_classifications | join(", ") | replace("_", " ") }}</td></tr>{% endif %}
+          {% if prof.common_modules %}<tr><td>Common scopes</td><td>{{ prof.common_modules | join(", ") }}</td></tr>{% endif %}
+          {% if prof.protocols %}<tr><td>Protocols in play</td><td>{{ prof.protocols | join(", ") }}</td></tr>{% endif %}
+          <tr><td>Verification maturity</td><td>{{ prof.verification_maturity }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% set rated = lrn.agent_reliability | selectattr("accuracy") | list %}
+    {% if rated %}
+    <div class="card">
+      <h3>Agent historical reliability</h3>
+      <div class="graph-scroll">
+      <table>
+        <thead><tr><th>Specialist</th><th>Led</th><th>Confirmed</th><th>Accuracy</th><th>Influence</th></tr></thead>
+        <tbody>
+        {% for item in rated %}
+          <tr>
+            <td>{{ item.agent_id }}</td>
+            <td class="num">{{ item.times_led }}</td>
+            <td class="num">{{ item.times_correct }}</td>
+            <td class="num">{{ "%.0f" | format(item.accuracy * 100) }}%</td>
+            <td class="num">{{ "%.2f" | format(item.calibration_multiplier) }}x</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% if lrn.calibration %}
+      <p class="meta">
+        Calibration applied to this run: {% for agent, mult in lrn.calibration.items() %}{{ agent }} {{ "%.2f" | format(mult) }}x{{ ", " if not loop.last }}{% endfor %}.
+        Calibration adjusts a specialist's influence on the merged findings only; it never
+        changes what a specialist concluded.
+      </p>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% if lrn.common_recommendations %}
+    <div class="card">
+      <h3>Common recommendations that helped</h3>
+      <div class="graph-scroll">
+      <table>
+        <thead><tr><th>Action</th><th>Helped</th><th>Wasted time</th></tr></thead>
+        <tbody>
+        {% for outcome in lrn.common_recommendations %}
+          <tr>
+            <td>{{ outcome.action }}</td>
+            <td class="num">{{ outcome.useful_votes }}</td>
+            <td class="num">{{ outcome.false_votes }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
   {% if report.agents and report.agents.findings %}
   {% set ag = report.agents %}
   <section>

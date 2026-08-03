@@ -9,7 +9,7 @@ what's next" record.
 
 Repo: https://github.com/patel-om/veritriage (public, Apache-2.0)
 Local path: `/Users/ompatel/Documents/veritriage`
-Current version: **1.8.0**
+Current version: **1.9.0**
 Portfolio integration: card + sample artifacts in
 `/Users/ompatel/Documents/Om Portfolio` (`index.html`,
 `veritriage-sample-report.html`, `veritriage-sample-dashboard.html`)
@@ -41,12 +41,18 @@ metadata - into:
    result, and a Coordinator that merges them into ranked findings with
    agreement, conflict, and per-agent contribution made explicit. A second
    opinion, never a replacement verdict.
-6. A persistent **Regression Database** (SQLite) giving the platform
+6. A **Learning Engine** (M13): every completed investigation improves the
+   next one. Seven families of versioned, explainable artifacts derived
+   deterministically from recorded history (recurring patterns, evidence
+   combinations, agent reliability, project profiles, protocol statistics,
+   recommendation outcomes, hypothesis history), recalled as hints and a
+   bounded agent calibration map. It remembers; it does not decide.
+7. A persistent **Regression Database** (SQLite) giving the platform
    historical memory: deterministic failure signatures, similarity search,
    "have we seen this before?", failure clustering, and team-level
    analytics via an engineering dashboard.
-7. An **optional AI review** that reasons only over the bounded, normalized
-   output of stages 1-6 (never raw files) and only explains/annotates -
+8. An **optional AI review** that reasons only over the bounded, normalized
+   output of stages 1-7 (never raw files) and only explains/annotates -
    it cannot alter the graph, classification, ranking, or knowledge
    conclusions.
 
@@ -613,6 +619,65 @@ Deferred to M12.x: real AI providers behind `ReasoningProvider`; an
 `agent-review` orchestration step; agent-aware bundle comparison; per-agent
 confidence calibration from `feedback/`.
 
+### Milestone 13 (v1.9.0) - Learning Engine
+
+The milestone that makes VeriTriage adaptive rather than stateless. New
+top-level package `learning/`, a peer of `knowledge/`/`agents/`/`project/`,
+positioned above all of them.
+
+**The finding that shaped it:** the regression database was write-rich and
+read-poor. It stored complete reports and complete Evidence Graphs and ran
+exactly two queries against them (`count_signature`, `find_similar`), whose
+total influence on the next run was capped at one appended recommendation.
+Stored-but-never-read included: every agent outcome (v1.8.0 records what eight
+specialists concluded and nothing asked whether any was right), the
+`useful_recommendations`/`false_recommendations` votes M4 designed and left
+unbuilt, `diagnosis == "incorrect"`, per-pack utility across 42 packs, project
+continuity, and evidence co-occurrence.
+
+**The load-bearing decision:** *learning is a pure function of recorded
+history*. Same records plus same feedback yields byte-identical artifacts,
+independent of arrival order and of the wall clock. Two mechanical details make
+that hold rather than merely be claimed: `Corpus.as_of` supplies artifact
+timestamps from the newest recorded run instead of `now()`, and artifact IDs use
+content digests rather than builtin `hash()` (which is salted per process and
+was caught doing exactly that during implementation).
+
+Structure: `corpus.py` (indexed read-only view; the only thing a learner sees),
+`registry.py` (`@register_learner`, batch not incremental, so rebuilds are
+idempotent), `learners/` (seven families), `persistence.py` (`LearningStore`, a
+**separate** SQLite file so deleting it restores exact pre-M13 behavior),
+`calibration.py`, `engine.py` (`observe` / `recall` / `augment`, mirroring
+`HistoryEngine.record`/`augment`).
+
+Three guards on calibration: a floor on evidence (`MIN_OBSERVATIONS = 3` judged
+runs), a clamp to [0.80, 1.20], and a default of nothing. Applied by the
+**Coordinator at merge time, never by an agent**, so an agent still computes the
+same position from the same evidence and only its influence moves. Agents gain
+memory without gaining a dependency: hints arrive as plain data on
+`AgentContext.learning`, and `agents/` never imports `learning/`.
+
+Additive edits only: `AnalysisReport.learning` (schema `9` -> `10`),
+`analyze(learning=...)`, `AgentCoordinator(calibration=...)`,
+`WorkspaceServices(learning_db=...)` plus six methods,
+`investigate(learn=True)`, 6 MCP tools (31 -> 37), CLI `learn` command and
+`--learn/--no-learn`, and a report "What Prior Investigations Suggest" section.
+No LLM, no embeddings, no vector DB, no ArtifactType, no reasoning change, no
+agent rewritten, Regression Intelligence untouched and still authoritative.
+
+44 new tests (487 total). Design doc: `docs/LEARNING_ENGINE.md` (approved before
+implementation). Crown jewel `test_new_learner_needs_only_registration`: a
+throwaway flakiness learner defined in the test reaches the store, the
+statistics, and the recall path with zero core changes. Notable: an agent-memory
+test caught that recurring patterns only arrived in `augment()` (after agents
+ran), defeating the intended "agents receive historical context before
+execution" flow; fixed by recalling all investigation patterns up front, with
+`augment` promoting the signature-specific match.
+
+Deferred to M13.x: learned embeddings behind the existing `EmbeddingProvider`
+seam; a learning-aware dashboard section; recommendation reranking from
+`RecommendationOutcome` (the artifacts exist, the reranker does not).
+
 ---
 
 ## 3. Current architecture map
@@ -656,9 +721,9 @@ src/veritriage/
                      report sections), search.py (deterministic search). Imports
                      the core; NOTHING in the core imports it (guard-enforced).
   mcp/               M8: tools.py (transport-agnostic tool table over services,
-                     31 tools incl. 5 M9 orchestration, 7 M10 collaboration,
-                     4 M11 project, and 3 M12 agent tools; register_tool
-                     extension point), server.py
+                     37 tools incl. 5 M9 orchestration, 7 M10 collaboration,
+                     4 M11 project, 3 M12 agent, and 6 M13 learning tools;
+                     register_tool extension point), server.py
                      (dependency-free MCP stdio JSON-RPC transport). Serve with
                      `veritriage mcp`.
   orchestrator/      M9: steps.py (InvestigationStep + register_step + 10 built-in
@@ -699,6 +764,16 @@ src/veritriage/
                      (8 specialists). Sits ABOVE reasoning and every lens; imports
                      only models, graph, knowledge. Nothing below imports it
                      (guard-enforced). Never mutates the graph or ReasoningResult.
+  learning/          M13: corpus.py (indexed read-only view over recorded history;
+                     `as_of` supplies the corpus clock so purity holds), registry.py
+                     (@register_learner; batch, so rebuilds are idempotent),
+                     learners/ (7 families), persistence.py (LearningStore, a SEPARATE
+                     SQLite file; deleting it restores exact pre-M13 behavior),
+                     calibration.py (bounded, floored, explainable), engine.py
+                     (observe/recall/augment). Sits ABOVE agents; imports only models
+                     plus the history/feedback record vocabulary. Nothing below imports
+                     it, and agents/ in particular does not: hints reach agents as plain
+                     data on AgentContext (guard-enforced).
   reports/           HTML report generator (Jinja2, self-contained, light/dark).
   cli/main.py        Typer app: analyze, parsers, knowledge, waveform, context,
                      project, dut, env, flow, explain, investigate, impact, mcp, sessions, run,
@@ -737,13 +812,13 @@ input artifacts.
 **Report schema version history:** v1 (M1) → v2 adds Evidence Graph (M2) →
 v3 adds `reasoning` (M3) → v4 adds `history` (M4) → v5 adds `knowledge`
 (M5) → v6 adds `waveform` (M6) → v7 adds `engineering` (M7) → v8 adds
-`project` (M11) → v9 adds `agents` (M12). Bump on any breaking field change; tests assert the current
+`project` (M11) → v9 adds `agents` (M12) → v10 adds `learning` (M13). Bump on any breaking field change; tests assert the current
 value (`test_cli.py`).
 
-**Current test count: 443**, across `tests/test_*.py`: parsers, rules,
+**Current test count: 487**, across `tests/test_*.py`: parsers, rules,
 graph, artifact parsers, models, report, CLI, AI boundary, reasoning,
 history, analytics, knowledge, waveform, engineering, workspace/MCP,
-orchestrator, collaboration, project, agents. Run with `.venv/bin/python -m pytest -q`
+orchestrator, collaboration, project, agents, learning. Run with `.venv/bin/python -m pytest -q`
 from the repo root.
 
 ---

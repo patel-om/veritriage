@@ -112,14 +112,14 @@ never modifies it (pinned by `tests/test_history.py`). Full design:
 
 ## Report layer
 
-`AnalysisReport` (schema v9) carries the classification, merged run summary,
+`AnalysisReport` (schema v10) carries the classification, merged run summary,
 graph statistics, evidence with node references, the reasoning result, the
 knowledge context, the waveform, engineering, and project contexts, the agent
-assessment, and optional historical context. One analysis writes
+assessment, the learning context, and optional historical context. One analysis writes
 three artifacts: `analysis.json`, `evidence_graph.json` (the full
 serialized graph), and `report.html` (self-contained, light/dark aware,
-with Evidence Graph, Verification Knowledge, Agent Findings, and Historical
-Context sections). The CLI renders the same models to the terminal with Rich.
+with Evidence Graph, Verification Knowledge, Agent Findings, What Prior
+Investigations Suggest, and Historical Context sections). The CLI renders the same models to the terminal with Rich.
 
 ## AI layer
 
@@ -152,6 +152,8 @@ reasoning engine; it just sees more nodes.
 | New protocol/domain expertise (ACE, AXI-Stream, power management, security, formal, company-internal protocols, ...) | a Knowledge Pack module with `@register_pack` |
 | A new domain specialist (thermal, power, emulation, company-internal) | one `register_agent` class, nothing else (M12) |
 | A new AI provider (Claude, GPT, Gemini, local, MCP-hosted) | one `ReasoningProvider` implementation, nothing else (M12) |
+| A new thing to learn from history (flakiness, cost, cycle time) | one `register_learner` class, nothing else (M13) |
+| Learned embeddings, semantic retrieval, graph similarity | an `EmbeddingProvider` or a `Learner`; the Learning Engine contracts are unchanged (M13) |
 | Jira / CI / emulation / formal integrations | adapters around the RegressionRecord vocabulary |
 | Learned similarity embeddings | an `EmbeddingProvider` implementation in `similarity/` |
 | VS Code / Slack / GitHub Action / MCP server | front-ends over `veritriage.pipeline.analyze()` |
@@ -278,6 +280,39 @@ citation is filtered against the real graph
 abstains; a rogue provider that tries to rewrite hypotheses changes only prose
 (`test_provider_cannot_alter_conclusions`); and a new specialist is one
 registration (`test_new_agent_needs_only_registration`).
+
+## Learning Engine (M13): the platform stops being stateless
+
+Every completed investigation improves the next one, without retraining
+anything and without touching a deterministic conclusion path. The Learning
+Engine (`veritriage/learning/`) consumes the regression database and engineer
+feedback and derives seven families of versioned, explainable artifacts
+(recurring investigation patterns, evidence combinations, agent reliability,
+project profiles, protocol statistics, recommendation outcomes, hypothesis
+history), then recalls them for the next run as hints and a bounded agent
+calibration map. Full design: [LEARNING_ENGINE.md](LEARNING_ENGINE.md).
+
+The load-bearing law, pinned by `tests/test_learning.py`: **learning is a pure
+function of recorded history.** Given the same records and feedback, the
+artifacts are byte-identical, independent of arrival order and of the wall
+clock (artifact timestamps come from the newest recorded run, never from
+`now()`). Three consequences follow, each test-pinned: learning never overrides
+deterministic evidence (`test_learning_never_changes_graph_or_reasoning`);
+learning is removable, since deleting the separate learning database restores
+exact pre-M13 behavior
+(`test_platform_without_learning_matches_previous_behaviour`); and nothing is
+opaque, since no LLM, embedding, vector database, or model appears anywhere in
+the package (`test_no_models_or_embeddings_in_learning`).
+
+Calibration is the one place learning touches ranking, and it is bounded on
+three sides: a floor on evidence before it applies at all, a narrow clamp on
+the multiplier, and a default of nothing. It is applied by the Coordinator at
+merge time, never by an agent, so an agent still computes the same position
+from the same evidence and only its influence moves
+(`test_calibration_never_changes_what_an_agent_concluded`). Agents gain memory
+without gaining a dependency: hints arrive as plain data on `AgentContext`, and
+`agents/` never imports `learning/`
+(`test_agents_gain_memory_without_importing_learning`).
 
 ## Collaborative Investigation Platform (M10): portable investigations
 

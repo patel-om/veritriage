@@ -19,7 +19,11 @@ eight domain specialists over the deterministic result, merging their
 evidence-backed positions into ranked findings with agreement and conflict made
 explicit. Every analysis is also recorded into a persistent **Regression
 Database**, so the platform tells you whether this failure has been seen
-before, what resembled it, and what the historical root cause was.
+before, what resembled it, and what the historical root cause was. A
+**Learning Engine** then turns that accumulated history into reusable
+knowledge: recurring patterns, evidence combinations, per-specialist
+reliability, and project memory, all derived deterministically and all linked
+back to the investigations they were learned from.
 
 ```
 veritriage analyze simulation.log coverage.txt test_metadata.json
@@ -46,6 +50,8 @@ Regression failure
                                "have we seen this before?")
   -> Coordinate agents        (eight domain specialists over the finished result
                                -> merged findings, agreement, conflict)
+  -> Learn                    (recurring patterns, agent reliability, project
+                               memory -> hints for the next investigation)
   -> Report                   (analysis.json + evidence_graph.json + report.html)
   -> Optional AI review       (reasons ONLY over selected evidence, cites node IDs)
 ```
@@ -76,7 +82,11 @@ prompt engineering, and how to add a protocol pack, and
 how specialized reasoning components form a second opinion over the
 deterministic result, how the Coordinator merges and cross-examines them, and
 how Deterministic and Generative Intelligence are kept cleanly separated so any
-future AI provider is one class behind one protocol.
+future AI provider is one class behind one protocol, and
+[docs/LEARNING_ENGINE.md](docs/LEARNING_ENGINE.md) for the Learning Engine: why
+learning is a pure function of recorded history, how it stays explainable
+without embeddings or models, and how it calibrates without ever overriding
+deterministic evidence.
 
 ## Installation
 
@@ -131,8 +141,17 @@ veritriage agents                                          # registered speciali
 veritriage analyze simulation.log -o out/                  # agents on by default
 veritriage analyze simulation.log --no-agents -o out/      # opt out
 
+# Learning Engine: every completed investigation improves the next one. Derived
+# deterministically from the regression database (no LLM, no embeddings, no
+# vector DB, no hidden state), stored separately, and rebuildable at any time.
+# Learning produces hints and bounded agent calibration; it never decides.
+veritriage learn                                           # recompute from recorded history
+veritriage analyze simulation.log -o out/                  # recall on by default
+veritriage analyze simulation.log --no-learn -o out/       # opt out
+veritriage feedback reg-... --diagnosis correct            # feedback is what calibration learns from
+
 # Workspace and MCP: VeriTriage as an external investigation service.
-# `veritriage mcp` serves 31 investigation tools over stdio, so Claude Code,
+# `veritriage mcp` serves 37 investigation tools over stdio, so Claude Code,
 # Cursor, or any MCP host can analyze regressions, walk evidence, search the
 # knowledge base, and query history: the CLI and MCP share the same services.
 veritriage mcp                                             # MCP tool server (stdio)
@@ -177,9 +196,9 @@ Each run writes three artifacts to the output directory:
 
 | File | Contents |
 |---|---|
-| `analysis.json` | Classification, confidence, evidence (with graph node IDs), reasoning, agent findings, historical context, run summary, graph stats |
+| `analysis.json` | Classification, confidence, evidence (with graph node IDs), reasoning, agent findings, learned hints, historical context, run summary, graph stats |
 | `evidence_graph.json` | The full serialized Evidence Graph: every node and relationship |
-| `report.html` | Self-contained EDA-style dashboard (light/dark), hypotheses, agent findings, historical context, evidence timeline, next steps |
+| `report.html` | Self-contained EDA-style dashboard (light/dark), hypotheses, agent findings, what prior investigations suggest, historical context, evidence timeline, next steps |
 
 Each analysis is also stored in the regression database (opt out with
 `--no-history`), which powers `veritriage history`, `veritriage dashboard`,
@@ -236,7 +255,8 @@ untouched by design
 
 As of v1.0.0 the core is stable and its public API (WorkspaceServices, the MCP
 tool table, the orchestrator step/profile registries, the `.vtb` bundle format,
-and since v1.8.0 the `Agent` / `ReasoningProvider` contracts) is frozen; future
+since v1.8.0 the `Agent` / `ReasoningProvider` contracts, and since v1.9.0 the
+`Learner` / `LearningArtifact` contracts) is frozen; future
 work is integrations over existing seams: AI providers (Claude, GPT, Gemini,
 local models, MCP-hosted reasoners) as `ReasoningProvider` implementations
 behind the M12 seam -> a VS Code

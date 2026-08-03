@@ -24,6 +24,8 @@ from veritriage.models import (
     EngineeringContextView,
     HistoricalContext,
     KnowledgeContext,
+    LearningContext,
+    LearningHint,
     MatchedPattern,
     ProjectContext,
     ReasoningResult,
@@ -63,6 +65,11 @@ class AgentContext(BaseModel):
     waveform: WaveformContext | None = None
     engineering: EngineeringContextView | None = None
     history: HistoricalContext | None = None
+    #: What the Learning Engine recalled for this run (M13). Plain data: the
+    #: agents package never imports the learning package, exactly as reasoning
+    #: never imports knowledge. Agents gain memory; they stay deterministic,
+    #: because the same context (hints included) always yields the same result.
+    learning: LearningContext | None = None
 
     # --- Evidence queries ---------------------------------------------------
 
@@ -97,6 +104,18 @@ class AgentContext(BaseModel):
     def signals_with_prefix(self, prefix: str) -> list[ReasoningSignal]:
         """Every signal whose name starts with ``prefix`` (subsystem grouping)."""
         return [s for s in self.reasoning.signals if s.name.startswith(prefix)]
+
+    # --- Learned memory (M13) -----------------------------------------------
+    #
+    # Hints inform an investigation; they can never manufacture evidence for
+    # one. An agent may cite a hint in an observation, but a hypothesis still
+    # has to cite Evidence Graph nodes from the current run.
+
+    def learning_hints(self, kind: str | None = None) -> list[LearningHint]:
+        """What history suggests, strongest first; empty without a learning store."""
+        if self.learning is None:
+            return []
+        return self.learning.hints_of_kind(kind) if kind else list(self.learning.hints)
 
     # --- Knowledge queries --------------------------------------------------
 
@@ -147,6 +166,7 @@ def build_agent_context(
     waveform: WaveformContext | None = None,
     engineering: EngineeringContextView | None = None,
     history: HistoricalContext | None = None,
+    learning: LearningContext | None = None,
 ) -> AgentContext:
     """Assemble the frozen context the Coordinator hands to every agent."""
     return AgentContext(
@@ -159,4 +179,5 @@ def build_agent_context(
         waveform=waveform,
         engineering=engineering,
         history=history,
+        learning=learning,
     )

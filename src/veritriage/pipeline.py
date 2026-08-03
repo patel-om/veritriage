@@ -28,7 +28,7 @@ from veritriage.agents import AgentCoordinator, build_agent_context
 from veritriage.graph.builder import GraphBuilder
 from veritriage.graph.graph import EvidenceGraph
 from veritriage.knowledge import KnowledgeEngine, knowledge_reasoning_rules
-from veritriage.models import AnalysisReport, LogSummary, Severity
+from veritriage.models import AnalysisReport, LearningContext, LogSummary, Severity
 from veritriage.parsers import find_parser, get_parser
 from veritriage.parsers.base import ParseResult
 from veritriage.project import ProjectModel, build_project_view, project_reasoning_rules
@@ -54,6 +54,7 @@ def analyze(
     engineering: EngineeringContext | None = None,
     project: ProjectModel | None = None,
     agents: bool = True,
+    learning: LearningContext | None = None,
 ) -> AnalysisOutcome:
     """Analyze one or more artifacts and return the report plus the graph.
 
@@ -79,6 +80,12 @@ def analyze(
             Agents form a second opinion over the finished deterministic result:
             they never mutate the graph, the classification, or the reasoning
             hypotheses, so turning this off changes only the ``agents`` field.
+        learning: Already-recalled learning context (recalled by the workspace
+            from the learning store, exactly as ``project`` is built there).
+            When supplied it reaches the agents as memory, calibrates their
+            influence at merge time, and is attached to the report. The
+            pipeline never opens the learning store, so it stays a pure
+            function of its inputs.
 
     Raises:
         FileNotFoundError: If any path does not exist.
@@ -162,8 +169,11 @@ def analyze(
     # The Agent Framework runs last, over the finished deterministic result: it
     # is a second opinion, not a stage of the pipeline's conclusion path. It
     # reads the report and the graph and writes only report.agents.
+    report.learning = learning
     if agents:
-        assessment = AgentCoordinator().coordinate(
+        assessment = AgentCoordinator(
+            calibration=learning.calibration if learning is not None else None
+        ).coordinate(
             build_agent_context(
                 graph=graph,
                 classification=report.classification,
@@ -174,6 +184,7 @@ def analyze(
                 waveform=report.waveform,
                 engineering=report.engineering,
                 history=report.history,
+                learning=learning,
             )
         )
         report.agents = None if assessment.is_empty else assessment

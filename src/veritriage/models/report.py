@@ -13,6 +13,7 @@ from veritriage.models.failure import AssertionFailure, Failure, FailureCategory
 from veritriage.models.engineering import EngineeringContextView
 from veritriage.models.history import HistoricalContext
 from veritriage.models.knowledge import KnowledgeContext
+from veritriage.models.learning import LearningContext
 from veritriage.models.project import ProjectContext
 from veritriage.models.reasoning import ReasoningResult
 from veritriage.models.waveform import WaveformContext
@@ -82,7 +83,7 @@ class AnalysisReport(BaseModel):
     Version 2 introduces multi-artifact input and the Evidence Graph.
     """
 
-    schema_version: str = "9"
+    schema_version: str = "10"
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     input_files: list[str] = Field(description="Paths of the analyzed artifacts, as given on the CLI.")
     parser_names: list[str] = Field(description="Parsers used, one per input artifact.")
@@ -136,6 +137,13 @@ class AnalysisReport(BaseModel):
         "merged findings with agreement and conflict made explicit, and whether the agent "
         "layer agrees with the deterministic reasoning engine. A second opinion that sits "
         "beside `reasoning` and never replaces it.",
+    )
+    learning: LearningContext | None = Field(
+        default=None,
+        description="Learning Engine output: what prior investigations suggest for this "
+        "one. Hints, agent reliability, project memory, and recurring patterns, each "
+        "linked back to the regressions it was learned from. Never a conclusion: learning "
+        "informs, it does not decide.",
     )
     ai_summary: str | None = Field(
         default=None, description="Optional AI-generated narrative; grounded in `evidence` only."
