@@ -5,17 +5,21 @@ raw verification artifacts (simulation logs, compile logs, coverage summaries,
 test metadata) into a normalized **Evidence Graph**, a deterministic failure
 classification with confidence and evidence, an engineering-grade HTML report,
 and suggested next debugging steps - in one command. A **Verification
-Knowledge Engine** ships 13 pluggable Knowledge Packs spanning AMBA AXI,
-APB, AHB, CHI, TileLink, PCI Express, UVM methodology, SystemVerilog
-Assertions, reset sequencing, clock domain crossing, cache coherency, and
-RISC-V privilege (29 deterministic failure patterns, 29 debug playbooks, 9
-protocol state machines total) that match the evidence against known
-failure patterns, project it onto protocol state machines to show where
-progress stopped, and attach deterministic debug playbooks with real
-specification references. Every analysis is also recorded into a
-persistent **Regression Database**, so the platform tells you whether this
-failure has been seen before, what resembled it, and what the historical
-root cause was.
+Knowledge Engine** ships 42 pluggable Knowledge Packs across six domains
+(interconnect, CPU/ISA, memory, serial IO, coherency, and methodology):
+AMBA AXI/APB/AHB/ACE/AXI-Stream, CHI, TileLink, NoC, PCIe, CXL, UCIe, DDR,
+HBM, USB, Ethernet, MIPI, I2C/I3C, SPI, UART, JTAG, UVM methodology with
+RAL/phasing/TLM, SVA, formal, low power, DFT, X-propagation, CDC, reset,
+coherency, security, performance, and RISC-V depth (92 deterministic failure
+patterns, 90 debug playbooks, 15 protocol state machines total) that match the
+evidence against known failure patterns, project it onto protocol state
+machines to show where progress stopped, and attach deterministic debug
+playbooks with real specification references. An **Agent Framework** then puts
+eight domain specialists over the deterministic result, merging their
+evidence-backed positions into ranked findings with agreement and conflict made
+explicit. Every analysis is also recorded into a persistent **Regression
+Database**, so the platform tells you whether this failure has been seen
+before, what resembled it, and what the historical root cause was.
 
 ```
 veritriage analyze simulation.log coverage.txt test_metadata.json
@@ -40,6 +44,8 @@ Regression failure
                                competing hypotheses -> traceable confidence)
   -> Remember                 (regression database: signature, similarity,
                                "have we seen this before?")
+  -> Coordinate agents        (eight domain specialists over the finished result
+                               -> merged findings, agreement, conflict)
   -> Report                   (analysis.json + evidence_graph.json + report.html)
   -> Optional AI review       (reasons ONLY over selected evidence, cites node IDs)
 ```
@@ -65,7 +71,12 @@ regression database: deterministic failure signatures, similar-failure
 search, clustering, analytics, and the engineering dashboard, and
 [docs/KNOWLEDGE_ENGINE.md](docs/KNOWLEDGE_ENGINE.md) for the Verification
 Knowledge Engine: why structured, versioned verification knowledge beats
-prompt engineering, and how to add a protocol pack.
+prompt engineering, and how to add a protocol pack, and
+[docs/AGENT_FRAMEWORK.md](docs/AGENT_FRAMEWORK.md) for the Agent Framework:
+how specialized reasoning components form a second opinion over the
+deterministic result, how the Coordinator merges and cross-examines them, and
+how Deterministic and Generative Intelligence are kept cleanly separated so any
+future AI provider is one class behind one protocol.
 
 ## Installation
 
@@ -111,8 +122,17 @@ veritriage explain simulation.log                          # classify each line 
 veritriage analyze simulation.log --project -o out/        # project-aware analysis (default on)
 veritriage analyze simulation.log --no-project -o out/     # opt out
 
+# Agent Framework: eight domain specialists (protocol, RTL, testbench, coverage,
+# regression, formal, project, knowledge) form independent, evidence-backed
+# positions over the deterministic result; the Coordinator merges them, detects
+# agreement and conflict, and cross-checks against the reasoning engine. A second
+# opinion, never a replacement verdict.
+veritriage agents                                          # registered specialists + providers
+veritriage analyze simulation.log -o out/                  # agents on by default
+veritriage analyze simulation.log --no-agents -o out/      # opt out
+
 # Workspace and MCP: VeriTriage as an external investigation service.
-# `veritriage mcp` serves 12 investigation tools over stdio, so Claude Code,
+# `veritriage mcp` serves 31 investigation tools over stdio, so Claude Code,
 # Cursor, or any MCP host can analyze regressions, walk evidence, search the
 # knowledge base, and query history: the CLI and MCP share the same services.
 veritriage mcp                                             # MCP tool server (stdio)
@@ -157,9 +177,9 @@ Each run writes three artifacts to the output directory:
 
 | File | Contents |
 |---|---|
-| `analysis.json` | Classification, confidence, evidence (with graph node IDs), reasoning, historical context, run summary, graph stats |
+| `analysis.json` | Classification, confidence, evidence (with graph node IDs), reasoning, agent findings, historical context, run summary, graph stats |
 | `evidence_graph.json` | The full serialized Evidence Graph: every node and relationship |
-| `report.html` | Self-contained EDA-style dashboard (light/dark), hypotheses, historical context, evidence timeline, next steps |
+| `report.html` | Self-contained EDA-style dashboard (light/dark), hypotheses, agent findings, historical context, evidence timeline, next steps |
 
 Each analysis is also stored in the regression database (opt out with
 `--no-history`), which powers `veritriage history`, `veritriage dashboard`,
@@ -183,7 +203,7 @@ print(outcome.report.classification.category, outcome.report.classification.conf
 print(outcome.graph.stats().node_count, "evidence nodes")
 ```
 
-## What v2 classifies
+## What the rule engine classifies
 
 | Category | Typical signature | Confidence |
 |---|---|---|
@@ -215,8 +235,11 @@ untouched by design
 ## Roadmap (documented, not built)
 
 As of v1.0.0 the core is stable and its public API (WorkspaceServices, the MCP
-tool table, the orchestrator step/profile registries, and the `.vtb` bundle
-format) is frozen; future work is integrations over existing seams: a VS Code
+tool table, the orchestrator step/profile registries, the `.vtb` bundle format,
+and since v1.8.0 the `Agent` / `ReasoningProvider` contracts) is frozen; future
+work is integrations over existing seams: AI providers (Claude, GPT, Gemini,
+local models, MCP-hosted reasoners) as `ReasoningProvider` implementations
+behind the M12 seam -> a VS Code
 extension and other IDE clients as thin consumers of `WorkspaceServices`, the
 MCP server, orchestration profiles, and portable bundles -> more waveform
 adapters (FSDB, FST, WLF, transaction DBs) behind the existing

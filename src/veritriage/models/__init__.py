@@ -6,6 +6,18 @@ ever touches raw artifact text again. Note: this package must never import
 ``veritriage.graph`` at runtime (the graph imports these models).
 """
 
+from veritriage.models.agents import (
+    AgentAssessment,
+    AgentConflict,
+    AgentContribution,
+    AgentDomain,
+    AgentFinding,
+    AgentHypothesis,
+    AgentObservation,
+    AgentRecommendation,
+    AgentResult,
+    ConsensusState,
+)
 from veritriage.models.engineering import (
     EngineeringContextView,
     ImpactedTestView,
@@ -75,11 +87,21 @@ from veritriage.models.waveform import (
 
 __all__ = [
     "AIReview",
+    "AgentAssessment",
+    "AgentConflict",
+    "AgentContribution",
+    "AgentDomain",
+    "AgentFinding",
+    "AgentHypothesis",
+    "AgentObservation",
+    "AgentRecommendation",
+    "AgentResult",
     "AnalysisReport",
     "AssertionFailure",
     "ClassificationResult",
     "ConfidenceContribution",
     "ConfidenceTrace",
+    "ConsensusState",
     "DutModuleView",
     "DutTopologyView",
     "EngineeringContextView",

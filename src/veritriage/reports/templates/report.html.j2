@@ -490,6 +490,86 @@
   </section>
   {% endif %}
 
+  {% if report.agents and report.agents.findings %}
+  {% set ag = report.agents %}
+  <section>
+    <h2>Agent Findings</h2>
+    <p class="lead">
+      {{ ag.agents_invoked | length }} domain specialist{{ "s" if ag.agents_invoked | length != 1 }}
+      formed independent, evidence-backed positions over the deterministic result.
+      This is a second opinion: it never replaces the reasoning engine's ranking.
+      {% if ag.agrees_with_reasoning is sameas true %}
+        The specialists agree with the deterministic ranking.
+      {% elif ag.agrees_with_reasoning is sameas false %}
+        <strong>The specialists disagree with the deterministic ranking</strong>, which is
+        worth a close look.
+      {% endif %}
+    </p>
+    <div class="card">
+      <div class="graph-scroll">
+      <table>
+        <thead><tr><th>Root cause</th><th>Confidence</th><th>Consensus</th><th>Specialists</th><th>Evidence</th></tr></thead>
+        <tbody>
+        {% for finding in ag.findings %}
+          <tr>
+            <td>{{ finding.category.display_name }}<span class="why" style="display:block; color: var(--muted); font-size: 12.5px;">{{ finding.statement }}</span></td>
+            <td class="num">{{ "%.0f" | format(finding.confidence * 100) }}%</td>
+            <td><span class="chip">{{ finding.consensus.value | replace("_", " ") }}</span></td>
+            <td>{{ finding.supporting_agents | join(", ") }}</td>
+            <td class="num">{{ finding.evidence_ids | length }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+    {% if ag.conflicts %}
+    <div class="card">
+      <h3>Where the specialists disagree</h3>
+      <ul class="steps">
+        {% for conflict in ag.conflicts %}
+        <li>{{ conflict.note }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    <div class="card">
+      <h3>Per-specialist assessment</h3>
+      <div class="graph-scroll">
+      <table>
+        <thead><tr><th>Agent</th><th>Domain</th><th>Position</th><th>Confidence</th><th>Observations</th><th>Limits</th></tr></thead>
+        <tbody>
+        {% for result in ag.results %}
+          <tr>
+            <td>{{ result.agent_id }}</td>
+            <td>{{ result.domain.value }}</td>
+            <td>
+              {% if not result.applicable %}<span class="dot muted"></span>not applicable
+              {% elif result.abstained %}<span class="dot muted"></span>abstained
+              {% else %}{{ result.hypotheses[0].category.display_name }}{% endif %}
+            </td>
+            <td class="num">{% if result.confidence %}{{ "%.0f" | format(result.confidence * 100) }}%{% else %}-{% endif %}</td>
+            <td class="num">{{ result.observations | length }}</td>
+            <td class="num">{{ result.limitations | length }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+    {% if ag.limitations %}
+    <div class="card">
+      <h3>What the specialists could not determine</h3>
+      <ul class="steps">
+        {% for limit in ag.limitations %}
+        <li>{{ limit }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
   {% if report.project %}
   {% set proj = report.project %}
   <section>

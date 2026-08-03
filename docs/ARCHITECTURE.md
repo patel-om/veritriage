@@ -83,10 +83,10 @@ design and diagrams: [REASONING_ENGINE.md](REASONING_ENGINE.md).
 
 Between classification and reasoning, the Knowledge Engine
 (`veritriage/knowledge/`) matches structured domain expertise against the
-Evidence Graph: 13 versioned Knowledge Packs (AXI, APB, AHB, CHI, TileLink,
-PCIe, UVM, SVA, reset/clocking, CDC, cache coherency, RISC-V privilege,
-coverage; 29 failure patterns, 29 playbooks, 9 protocol state machines in
-total) normalize into a frozen, queryable Verification Knowledge Graph;
+Evidence Graph: 42 versioned Knowledge Packs across six domains (interconnect,
+CPU/ISA, memory, serial IO, coherency, methodology; 92 failure patterns, 90
+playbooks, 15 protocol state machines in total) normalize into a frozen,
+queryable Verification Knowledge Graph;
 a deterministic clause matcher finds known failure patterns; evidence is
 projected onto protocol state machines to show where progress stopped; and
 matched patterns carry typical causes, ownership, suggested signals,
@@ -112,13 +112,14 @@ never modifies it (pinned by `tests/test_history.py`). Full design:
 
 ## Report layer
 
-`AnalysisReport` (schema v5) carries the classification, merged run summary,
+`AnalysisReport` (schema v9) carries the classification, merged run summary,
 graph statistics, evidence with node references, the reasoning result, the
-knowledge context, and optional historical context. One analysis writes
+knowledge context, the waveform, engineering, and project contexts, the agent
+assessment, and optional historical context. One analysis writes
 three artifacts: `analysis.json`, `evidence_graph.json` (the full
 serialized graph), and `report.html` (self-contained, light/dark aware,
-with Evidence Graph, Verification Knowledge, and Historical Context
-sections). The CLI renders the same models to the terminal with Rich.
+with Evidence Graph, Verification Knowledge, Agent Findings, and Historical
+Context sections). The CLI renders the same models to the terminal with Rich.
 
 ## AI layer
 
@@ -149,7 +150,8 @@ reasoning engine; it just sees more nodes.
 | A new annotation target kind (collaboration) | one `register_annotation_target` call, nothing else (M10) |
 | Spec retrieval | new node types + correlation passes |
 | New protocol/domain expertise (ACE, AXI-Stream, power management, security, formal, company-internal protocols, ...) | a Knowledge Pack module with `@register_pack` |
-| Multi-agent / deeper AI reasoning | consumers of `to_reasoning_view()`, behind the same boundary |
+| A new domain specialist (thermal, power, emulation, company-internal) | one `register_agent` class, nothing else (M12) |
+| A new AI provider (Claude, GPT, Gemini, local, MCP-hosted) | one `ReasoningProvider` implementation, nothing else (M12) |
 | Jira / CI / emulation / formal integrations | adapters around the RegressionRecord vocabulary |
 | Learned similarity embeddings | an `EmbeddingProvider` implementation in `similarity/` |
 | VS Code / Slack / GitHub Action / MCP server | front-ends over `veritriage.pipeline.analyze()` |
@@ -251,6 +253,31 @@ imports it (`test_core_unchanged_by_orchestration`), and a new workflow
 step or profile is one registration
 (`test_new_step_needs_only_registration`). Full design:
 [INVESTIGATION_ORCHESTRATOR.md](INVESTIGATION_ORCHESTRATOR.md).
+
+## Agent Framework (M12): specialized reasoning above deterministic reasoning
+
+Eight domain specialists (protocol, RTL, testbench, coverage, regression,
+formal, project, knowledge) each form an independent, evidence-backed position
+over the finished deterministic result, and an Agent Coordinator merges them
+into ranked findings with agreement, conflict, and per-agent contribution made
+explicit. Generative intelligence is a declared seam (`ReasoningProvider`) that
+may narrate a conclusion but never create one, so adding Claude, GPT, Gemini, a
+local model, or an MCP-hosted reasoner is one class behind one protocol, with no
+change to the Coordinator or to any agent. Full design:
+[AGENT_FRAMEWORK.md](AGENT_FRAMEWORK.md).
+
+The load-bearing law, pinned by `tests/test_agents.py`: **agents form a second
+opinion, never a replacement verdict.** The Coordinator reads the
+`ReasoningResult` and records whether it agrees
+(`test_agents_never_mutate_reasoning_or_graph` proves the graph, the
+classification, and the deterministic hypotheses are byte-identical with agents
+on or off). Agents are handed normalized evidence and never a path, so they
+cannot read a raw artifact (`test_agents_never_read_raw_artifacts`); every
+citation is filtered against the real graph
+(`test_fabricated_citations_are_filtered_out`); an agent with nothing to cite
+abstains; a rogue provider that tries to rewrite hypotheses changes only prose
+(`test_provider_cannot_alter_conclusions`); and a new specialist is one
+registration (`test_new_agent_needs_only_registration`).
 
 ## Collaborative Investigation Platform (M10): portable investigations
 

@@ -566,3 +566,68 @@ def _explain_log(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
     model = services.load_project_model(root) or services.build_project_model(root)
     model = model if not model.is_empty else None
     return services.explain_log(Path(str(arguments["path"])), model)
+
+
+# --- Agent Framework tools (M12) --------------------------------------------
+
+
+@register_tool(
+    "get_agent_assessment",
+    "The Agent Framework's second opinion on an investigation: which domain "
+    "specialists were consulted, the merged findings ranked by confidence with "
+    "agreement and conflict made explicit, the union of their recommendations "
+    "and stated limitations, and whether the agent layer agrees with the "
+    "deterministic reasoning engine. Never replaces the reasoning result.",
+    _SESSION_ARG,
+)
+def _get_agent_assessment(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    session = _require_session(services, arguments)
+    assessment = services.agent_assessment(session)
+    if assessment is None:
+        raise KeyError(f"Session {session.session_id!r} carries no agent assessment")
+    return assessment
+
+
+@register_tool(
+    "get_agent_result",
+    "One specialist's full assessment of an investigation: its observations "
+    "with cited evidence node IDs, its evidence-backed positions with "
+    "confidence, its recommendations, and what it could not determine.",
+    _session_arg_with(
+        {
+            "agent_id": {
+                "type": "string",
+                "description": "Agent ID, e.g. 'protocol', 'rtl', 'testbench', 'formal'.",
+            }
+        },
+        required=["agent_id"],
+    ),
+)
+def _get_agent_result(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    session = _require_session(services, arguments)
+    agent_id = str(arguments["agent_id"])
+    result = services.agent_result(session, agent_id)
+    if result is None:
+        raise KeyError(
+            f"Session {session.session_id!r} carries no result for agent {agent_id!r}"
+        )
+    return result
+
+
+@register_tool(
+    "list_agents",
+    "The registered domain specialists and the reasoning providers available to "
+    "narrate them. Deterministic agents always run; providers are the optional "
+    "generative seam and default to none.",
+    {"type": "object", "properties": {}},
+)
+def _list_agents(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    from veritriage.agents import available_agents, available_providers
+
+    return {
+        "agents": [
+            {"agent_id": agent_id, "domain": agent_cls.domain.value}
+            for agent_id, agent_cls in sorted(available_agents().items())
+        ],
+        "providers": sorted(available_providers()),
+    }

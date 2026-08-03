@@ -24,6 +24,7 @@ from veritriage.engineering import (
     engineering_reasoning_rules,
     stored_context,
 )
+from veritriage.agents import AgentCoordinator, build_agent_context
 from veritriage.graph.builder import GraphBuilder
 from veritriage.graph.graph import EvidenceGraph
 from veritriage.knowledge import KnowledgeEngine, knowledge_reasoning_rules
@@ -52,6 +53,7 @@ def analyze(
     engine: RuleEngine | None = None,
     engineering: EngineeringContext | None = None,
     project: ProjectModel | None = None,
+    agents: bool = True,
 ) -> AnalysisOutcome:
     """Analyze one or more artifacts and return the report plus the graph.
 
@@ -72,6 +74,11 @@ def analyze(
             join the rule set and a ProjectContext is attached to the report;
             the Evidence Graph is never affected. The pipeline never builds a
             model itself, so it stays a pure function of its inputs.
+        agents: Run the Agent Framework after deterministic reasoning and attach
+            the resulting :class:`AgentAssessment` to the report. On by default.
+            Agents form a second opinion over the finished deterministic result:
+            they never mutate the graph, the classification, or the reasoning
+            hypotheses, so turning this off changes only the ``agents`` field.
 
     Raises:
         FileNotFoundError: If any path does not exist.
@@ -152,6 +159,24 @@ def analyze(
     # reads correlations and hypotheses and only attaches structure.
     if project is not None:
         report.project = build_project_view(project, graph, report)
+    # The Agent Framework runs last, over the finished deterministic result: it
+    # is a second opinion, not a stage of the pipeline's conclusion path. It
+    # reads the report and the graph and writes only report.agents.
+    if agents:
+        assessment = AgentCoordinator().coordinate(
+            build_agent_context(
+                graph=graph,
+                classification=report.classification,
+                reasoning=reasoning,
+                knowledge=report.knowledge,
+                knowledge_graph=knowledge_engine.knowledge,
+                project=report.project,
+                waveform=report.waveform,
+                engineering=report.engineering,
+                history=report.history,
+            )
+        )
+        report.agents = None if assessment.is_empty else assessment
     return AnalysisOutcome(report=report, graph=graph)
 
 

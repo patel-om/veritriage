@@ -77,6 +77,12 @@ def analyze(
         help="Read a project model (*.vproj.json under the context root) for "
         "project-aware reasoning and report context; degrades silently if absent.",
     ),
+    agents: bool = typer.Option(
+        True,
+        "--agents/--no-agents",
+        help="Run the domain specialists over the deterministic result and attach "
+        "their merged second opinion to the report.",
+    ),
     db: Path = typer.Option(
         DEFAULT_DB, "--db", help="Regression database file (created on first use)."
     ),
@@ -97,6 +103,7 @@ def analyze(
             engineering=engineering,
             record_history=history,
             project=project_model,
+            agents=agents,
         )
     except (FileNotFoundError, ValueError) as exc:
         _err.print(f"[red]error:[/red] {escape(str(exc))}")
@@ -164,6 +171,31 @@ def knowledge() -> None:
             str(len(pack.state_machines)),
         )
     console.print(table)
+
+
+@app.command()
+def agents() -> None:
+    """List the registered domain specialists and reasoning providers."""
+    from veritriage.agents import available_agents, available_providers
+
+    table = Table(title="Registered agents")
+    for column in ("Agent", "Domain", "Class"):
+        table.add_column(column)
+    for agent_id, agent_cls in sorted(available_agents().items()):
+        table.add_row(agent_id, agent_cls.domain.value, agent_cls.__name__)
+    console.print(table)
+
+    providers = Table(title="Reasoning providers (the generative seam)")
+    for column in ("Provider", "Kind"):
+        providers.add_column(column)
+    for name in sorted(available_providers()):
+        kind = "deterministic" if name != "null" else "disabled (default)"
+        providers.add_row(name, kind)
+    console.print(providers)
+    console.print(
+        "[dim]Agents are deterministic and always run. Providers may only narrate a "
+        "conclusion that already exists; none calls an external API.[/dim]"
+    )
 
 
 @app.command()
@@ -973,6 +1005,28 @@ def _print_summary(report: AnalysisReport) -> None:
             body.add_row(
                 f"  • {escape(hypothesis.title)}  [dim]{pct} "
                 f"({len(hypothesis.evidence_ids)} evidence nodes)[/dim]"
+            )
+    if report.agents is not None and report.agents.findings:
+        a = report.agents
+        body.add_row("")
+        body.add_row(
+            f"[bold]Agent findings[/bold]  [dim]({len(a.agents_invoked)} specialists "
+            f"consulted)[/dim]"
+        )
+        for finding in a.findings[:3]:
+            body.add_row(
+                f"  • {escape(finding.category.display_name)}  "
+                f"[dim]{finding.confidence * 100:.0f}% · {finding.consensus.value} · "
+                f"{', '.join(finding.supporting_agents)}[/dim]"
+            )
+        if a.conflicts:
+            body.add_row(
+                f"  [dim]{len(a.conflicts)} conflicting position"
+                f"{'s' if len(a.conflicts) != 1 else ''} between specialists[/dim]"
+            )
+        if a.agrees_with_reasoning is False:
+            body.add_row(
+                "  [yellow]specialists disagree with the deterministic ranking[/yellow]"
             )
     steps = (
         report.reasoning.recommendations

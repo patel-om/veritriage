@@ -21,7 +21,13 @@ from typing import TYPE_CHECKING, Sequence
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
-    from veritriage.models import LogAnnotationView, ProjectContext, ProjectSummary
+    from veritriage.models import (
+        AgentAssessment,
+        AgentResult,
+        LogAnnotationView,
+        ProjectContext,
+        ProjectSummary,
+    )
     from veritriage.project import ProjectModel
 
 from veritriage.engineering import EngineeringContext
@@ -142,6 +148,7 @@ class WorkspaceServices:
         record_history: bool = False,
         now: datetime | None = None,
         project: "ProjectModel | None" = None,
+        agents: bool = True,
     ) -> InvestigationSession:
         """Run one full analysis and wrap it into an immutable session.
 
@@ -156,6 +163,7 @@ class WorkspaceServices:
             parser_name=parser_name,
             engineering=engineering,
             project=project,
+            agents=agents,
         )
         if record_history and self._db is not None:
             from veritriage.history import HistoryEngine, capture_execution_metadata
@@ -218,6 +226,25 @@ class WorkspaceServices:
         from veritriage.project import explain_log
 
         return explain_log(path, model)
+
+    # --- Agent Framework (M12) ---------------------------------------------
+    #
+    # Read-only accessors over what the Coordinator already attached to the
+    # report. Agents run inside the analysis, so there is nothing to trigger
+    # here: these exist so a client never has to reach into report internals.
+
+    def agent_assessment(self, session: InvestigationSession) -> "AgentAssessment | None":
+        """The agent layer's second opinion on a session, if agents ran."""
+        return session.report.agents
+
+    def agent_result(
+        self, session: InvestigationSession, agent_id: str
+    ) -> "AgentResult | None":
+        """One specialist's full assessment: observations, position, limits."""
+        assessment = session.report.agents
+        if assessment is None:
+            return None
+        return next((r for r in assessment.results if r.agent_id == agent_id), None)
 
     def save(self, session: InvestigationSession) -> Path:
         return self._store.save(session)

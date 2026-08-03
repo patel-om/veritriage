@@ -9,7 +9,7 @@ what's next" record.
 
 Repo: https://github.com/patel-om/veritriage (public, Apache-2.0)
 Local path: `/Users/ompatel/Documents/veritriage`
-Current version: **1.7.0**
+Current version: **1.8.0**
 Portfolio integration: card + sample artifacts in
 `/Users/ompatel/Documents/Om Portfolio` (`index.html`,
 `veritriage-sample-report.html`, `veritriage-sample-dashboard.html`)
@@ -30,19 +30,23 @@ metadata - into:
 3. A multi-stage **Reasoning Engine** that produces multiple ranked,
    evidence-backed competing hypotheses (RTL bug vs. testbench vs.
    infrastructure vs. build) with fully traceable confidence propagation.
-4. A **Verification Knowledge Engine**: 13 pluggable Knowledge Packs
-   encoding real protocol/methodology expertise (AXI, APB, AHB, CHI,
-   TileLink, PCIe, UVM, SVA, reset/clocking, CDC, cache coherency, RISC-V
-   privilege, coverage) that match deterministic failure patterns against
-   evidence, project it onto protocol state machines, and attach fixed
-   debug playbooks with real specification references - all before any AI
-   runs.
-5. A persistent **Regression Database** (SQLite) giving the platform
+4. A **Verification Knowledge Engine**: 42 pluggable Knowledge Packs across
+   six domains (interconnect, CPU/ISA, memory, serial IO, coherency,
+   methodology) encoding real protocol/methodology expertise that match
+   deterministic failure patterns against evidence, project it onto protocol
+   state machines, and attach fixed debug playbooks with real specification
+   references - all before any AI runs.
+5. An **Agent Framework** (M12): eight domain specialists that form
+   independent, evidence-backed positions over the finished deterministic
+   result, and a Coordinator that merges them into ranked findings with
+   agreement, conflict, and per-agent contribution made explicit. A second
+   opinion, never a replacement verdict.
+6. A persistent **Regression Database** (SQLite) giving the platform
    historical memory: deterministic failure signatures, similarity search,
    "have we seen this before?", failure clustering, and team-level
    analytics via an engineering dashboard.
-6. An **optional AI review** that reasons only over the bounded, normalized
-   output of stages 1-5 (never raw files) and only explains/annotates -
+7. An **optional AI review** that reasons only over the bounded, normalized
+   output of stages 1-6 (never raw files) and only explains/annotates -
    it cannot alter the graph, classification, ranking, or knowledge
    conclusions.
 
@@ -539,6 +543,76 @@ changes). 21 new tests (398 total). Design doc: `docs/PROJECT_INTELLIGENCE.md`
 AI project brief. Also fixed on the way: the stale `__version__` (1.0.0 ->
 1.7.0) and this file's section-3 header drift.
 
+### Milestone 12 (v1.8.0) - Agent Framework and Coordinator
+
+The milestone that makes AI an *orchestration layer* rather than a text
+generator at the end of a pipeline. New top-level package `agents/`, a peer of
+`knowledge/`/`waveform/`/`engineering/`/`project/` but one layer higher: above
+reasoning and above every lens, below the pipeline.
+
+**The finding that shaped it:** the platform already had agent *parts* scattered
+across three layers under three names (`ReasoningRule` observes with confidence
+and citations; `HypothesisGenerator` produces positions and abstains without
+evidence; `KnowledgePatternRule` gives 92 domain specialists at pattern
+granularity; `rank_hypotheses` is already a merge function with a full trace;
+`ExecutionEngine` is already a coordinator with attribution) and no agent
+*unit*. M12 supplies exactly the four missing things: a per-domain aggregation
+unit, a standard multi-part output contract, explicit agreement/conflict
+detection, and a per-domain seam for generative intelligence.
+
+**The load-bearing decision:** agents form a **second opinion, never a
+replacement verdict**. The Coordinator consumes the finished deterministic
+`ReasoningResult`, cross-examines it, and records `agrees_with_reasoning`;
+nothing is reordered on disagreement. Test-pinned: the graph, the
+classification, and the deterministic hypotheses are byte-identical with agents
+on or off.
+
+Structure: `context.py` (frozen `AgentContext`, the only input an agent ever
+gets: normalized evidence and lenses, no path, so it *cannot* read a raw
+artifact), `base.py` (`Agent` ABC + a builder that filters citations against the
+real graph, drops uncitable hypotheses, and forces abstention), `registry.py`
+(`@register_agent`), `providers.py` (the Deterministic/Generative boundary:
+`ReasoningProvider` Protocol + `NullProvider` default + `DeterministicProvider`;
+`build_request` deep-copies so a provider holds no live reference), and
+`coordinator.py` (invoke in sorted order, isolate failures, merge, detect
+conflict). Eight built-in agents in `builtin/`: protocol, rtl, testbench,
+coverage, regression, formal, project, knowledge. Agents read the *deterministic
+signals* the reasoning engine already computed rather than re-deriving patterns
+from text, so extraction still happens exactly once.
+
+Merge semantics (additive and traceable, mirroring `rank_hypotheses`):
+`final = clamp(base + corroboration + contest, 0, 0.95)` where base is the
+strongest single agent confidence for a category, corroboration is +0.05 per
+additional independent supporter (capped +0.15), and contest is -0.10 once when
+another agent leads elsewhere. The 0.95 ceiling is deliberate: unanimous
+specialists can still all be reading incomplete evidence.
+
+**Zero API-calling providers ship.** M12 delivers the seam and two deterministic
+implementations; no vendor SDK, model name, or network call appears anywhere in
+`agents/`. Existing `reasoning/ai.py` is untouched; a later milestone may
+re-express it as an `AnthropicProvider` behind this seam.
+
+Additive edits only: `AnalysisReport.agents` (schema `8` -> `9`),
+`analyze(agents=True)`, `WorkspaceServices.investigate(agents=...)` plus two
+read-only accessors (`agent_assessment`, `agent_result`), 3 MCP tools
+(get_agent_assessment, get_agent_result, list_agents; 28 -> 31), CLI
+`--agents/--no-agents` and an `agents` command, and a report "Agent Findings"
+section. No `ArtifactType`, no `RelationType`, no core engine changed.
+
+45 new tests (443 total). Design doc: `docs/AGENT_FRAMEWORK.md` (approved before
+implementation). Crown jewel `test_new_agent_needs_only_registration`: a
+throwaway thermal agent defined in the test reaches the Coordinator, the merged
+findings, the conflict list, and the report with zero core changes. Notable: the
+rogue-provider test found a real hole during implementation (the request handed
+providers live model references, so a provider *could* mutate conclusions in
+place); fixed by deep-copying in `build_request`. Also fixed on the way: the
+long-stale README/KNOWLEDGE_ENGINE/ARCHITECTURE counts (still claiming 13 packs
+/ 29 patterns / 12 MCP tools from v1.0.0-era text).
+
+Deferred to M12.x: real AI providers behind `ReasoningProvider`; an
+`agent-review` orchestration step; agent-aware bundle comparison; per-agent
+confidence calibration from `feedback/`.
+
 ---
 
 ## 3. Current architecture map
@@ -582,8 +656,9 @@ src/veritriage/
                      report sections), search.py (deterministic search). Imports
                      the core; NOTHING in the core imports it (guard-enforced).
   mcp/               M8: tools.py (transport-agnostic tool table over services,
-                     24 tools incl. 5 M9 orchestration + 7 M10 collaboration
-                     tools, register_tool extension point), server.py
+                     31 tools incl. 5 M9 orchestration, 7 M10 collaboration,
+                     4 M11 project, and 3 M12 agent tools; register_tool
+                     extension point), server.py
                      (dependency-free MCP stdio JSON-RPC transport). Serve with
                      `veritriage mcp`.
   orchestrator/      M9: steps.py (InvestigationStep + register_step + 10 built-in
@@ -614,6 +689,16 @@ src/veritriage/
                      (ProjectStore). A separate, cached model that NEVER enters the
                      Evidence Graph; a lens over it. Reaches reasoning as injected
                      rules; nothing in the core imports it (guard-enforced).
+  agents/            M12: context.py (frozen AgentContext: the ONLY agent input,
+                     carries normalized evidence + lenses and no path), base.py
+                     (Agent ABC + contract-enforcing builder), registry.py
+                     (@register_agent), providers.py (ReasoningProvider Protocol +
+                     NullProvider + DeterministicProvider: the Deterministic/
+                     Generative boundary; zero API-calling providers ship),
+                     coordinator.py (invoke/merge/conflict/cross-check), builtin/
+                     (8 specialists). Sits ABOVE reasoning and every lens; imports
+                     only models, graph, knowledge. Nothing below imports it
+                     (guard-enforced). Never mutates the graph or ReasoningResult.
   reports/           HTML report generator (Jinja2, self-contained, light/dark).
   cli/main.py        Typer app: analyze, parsers, knowledge, waveform, context,
                      project, dut, env, flow, explain, investigate, impact, mcp, sessions, run,
@@ -625,7 +710,8 @@ src/veritriage/
   pipeline.py        analyze(): parse -> graph -> classify -> knowledge -> reason.
                      Waveform artifacts and context manifests parse like any other
                      (registered Parsers); waveform + engineering + project reasoning
-                     rules join the rule set beside knowledge rules;
+                     rules join the rule set beside knowledge rules; the Agent
+                     Coordinator runs last over the finished report;
                      build_waveform_context, build_engineering_view, and (when a model
                      is supplied) build_project_view fill the report; ownership augment
                      appends last. analyze(engineering=..., project=...) accepts
@@ -651,13 +737,13 @@ input artifacts.
 **Report schema version history:** v1 (M1) → v2 adds Evidence Graph (M2) →
 v3 adds `reasoning` (M3) → v4 adds `history` (M4) → v5 adds `knowledge`
 (M5) → v6 adds `waveform` (M6) → v7 adds `engineering` (M7) → v8 adds
-`project` (M11). Bump on any breaking field change; tests assert the current
+`project` (M11) → v9 adds `agents` (M12). Bump on any breaking field change; tests assert the current
 value (`test_cli.py`).
 
-**Current test count: 398**, across `tests/test_*.py`: parsers, rules,
+**Current test count: 443**, across `tests/test_*.py`: parsers, rules,
 graph, artifact parsers, models, report, CLI, AI boundary, reasoning,
 history, analytics, knowledge, waveform, engineering, workspace/MCP,
-orchestrator, collaboration, project. Run with `.venv/bin/python -m pytest -q`
+orchestrator, collaboration, project, agents. Run with `.venv/bin/python -m pytest -q`
 from the repo root.
 
 ---

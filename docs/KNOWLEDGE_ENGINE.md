@@ -8,10 +8,14 @@ specification references. Deterministic code matches that knowledge against
 the Evidence Graph before any AI runs; the LLM becomes an explanation layer
 over conclusions that already exist, never the source of technical truth.
 
-The knowledge base ships with **13 packs, 29 deterministic failure
-patterns, 29 debug playbooks, 31 concepts, and 9 protocol state machines**
-(`veritriage knowledge` prints the current count). Coverage spans the full
-list the milestone named: AMBA AXI (read, write, and exclusive access), APB,
+The knowledge base ships with **42 packs, 92 deterministic failure
+patterns, 90 debug playbooks, 90 concepts, and 15 protocol state machines**
+(`veritriage knowledge` prints the current count), grown across four content
+tiers after v1.0.0 with no change to the clause matcher, the Knowledge Graph,
+reasoning, or the report: proof that the registry architecture scales on
+content alone. Coverage spans six domains (interconnect, CPU/ISA, memory,
+serial IO, coherency, methodology) and includes the full original milestone
+list: AMBA AXI (read, write, and exclusive access), APB,
 AHB, AMBA CHI, TileLink, PCI Express, UVM methodology, SystemVerilog
 Assertions, reset sequencing, clock domain crossing, cache coherency, and
 RISC-V privilege. Every pack carries real specification section numbers,
