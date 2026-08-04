@@ -1016,3 +1016,172 @@ def _protocol_map(services: WorkspaceServices, arguments: dict[str, Any]) -> Any
     if query is None:
         raise KeyError("This project has no design model")
     return query.protocol_map()
+
+
+# --- Conversation tools (M16) -----------------------------------------------
+
+
+def _conversation_arg(extra: dict[str, Any] | None = None, required: list[str] | None = None):
+    return _session_arg_with(
+        {
+            "conversation": {
+                "type": "object",
+                "description": "A prior ConversationSession, to continue the exchange. "
+                "Omit to start fresh; the platform stores nothing.",
+            },
+            **(extra or {}),
+        },
+        required=required,
+    )
+
+
+def _ask(services: WorkspaceServices, arguments: dict[str, Any], question: Any) -> Any:
+    from veritriage.models import ConversationSession
+
+    session = _require_session(services, arguments)
+    prior = arguments.get("conversation")
+    conversation = ConversationSession.model_validate(prior) if prior else None
+    answer, updated = services.ask(session, question, conversation)
+    return {"answer": answer, "conversation": updated}
+
+
+@register_tool(
+    "ask",
+    "Ask a question about an investigation in the platform's declared "
+    "vocabulary, or send a structured intent. Returns an Answer whose every "
+    "statement cites artifacts that already exist, plus the updated "
+    "conversation so the next question can build on this one.",
+    _conversation_arg(
+        {
+            "question": {"type": "string", "description": "The question, in plain phrasing."},
+            "intent": {
+                "type": "string",
+                "description": "Structured intent instead of a phrase: explain, why, "
+                "why_not, show_evidence, filter, compare, trace, navigate, summarize, help.",
+            },
+            "target": {"type": "string", "description": "What the question is about."},
+            "filter": {"type": "string", "description": "Narrowing term for filter questions."},
+        }
+    ),
+)
+def _ask_tool(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    from veritriage.models import Intent, Question
+
+    if arguments.get("intent"):
+        question: Any = Question(
+            intent=Intent(str(arguments["intent"])),
+            target=arguments.get("target"),
+            filter=arguments.get("filter"),
+        )
+    else:
+        question = str(arguments.get("question", "help"))
+    return _ask(services, arguments, question)
+
+
+@register_tool(
+    "explain_finding",
+    "Explain the platform's verdict for an investigation, or one named "
+    "hypothesis, specialist, or plan step, with the trace that produced it.",
+    _conversation_arg({"target": {"type": "string", "description": "What to explain."}}),
+)
+def _explain_finding(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    from veritriage.models import Intent, Question
+
+    return _ask(
+        services,
+        arguments,
+        Question(intent=Intent.EXPLAIN, target=arguments.get("target")),
+    )
+
+
+@register_tool(
+    "explain_hypothesis",
+    "Why a hypothesis holds: its base plausibility, every signal that moved "
+    "its confidence, and which specialists agree.",
+    _conversation_arg({"target": {"type": "string", "description": "Hypothesis ID or category."}}),
+)
+def _explain_hypothesis(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    from veritriage.models import Intent, Question
+
+    return _ask(services, arguments, Question(intent=Intent.WHY, target=arguments.get("target")))
+
+
+@register_tool(
+    "explain_rejection",
+    "Why the competing explanations lost, term by term, including where the "
+    "specialists disagreed.",
+    _conversation_arg({"target": {"type": "string", "description": "The rejected hypothesis."}}),
+)
+def _explain_rejection(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    from veritriage.models import Intent, Question
+
+    return _ask(
+        services, arguments, Question(intent=Intent.WHY_NOT, target=arguments.get("target"))
+    )
+
+
+@register_tool(
+    "show_supporting_evidence",
+    "The evidence behind a hypothesis, a specialist, or the run itself, "
+    "optionally narrowed by artifact type, severity, or module.",
+    _conversation_arg(
+        {
+            "target": {"type": "string", "description": "Hypothesis or agent to show evidence for."},
+            "filter": {"type": "string", "description": "Artifact type, severity, or module."},
+        }
+    ),
+)
+def _show_supporting_evidence(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    from veritriage.models import Intent, Question
+
+    return _ask(
+        services,
+        arguments,
+        Question(
+            intent=Intent.SHOW_EVIDENCE,
+            target=arguments.get("target"),
+            filter=arguments.get("filter"),
+        ),
+    )
+
+
+@register_tool(
+    "trace_recommendation",
+    "Where a recommendation or plan step came from, traced across layers to "
+    "the curated pattern or specialist that produced it.",
+    _conversation_arg({"target": {"type": "string", "description": "Plan step ID."}}),
+)
+def _trace_recommendation(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    from veritriage.models import Intent, Question
+
+    return _ask(services, arguments, Question(intent=Intent.TRACE, target=arguments.get("target")))
+
+
+@register_tool(
+    "summarize_layer",
+    "A bounded summary of one intelligence layer: evidence, reasoning, agents, "
+    "knowledge, learning, plan, design, or history.",
+    _conversation_arg(
+        {"target": {"type": "string", "description": "The layer to summarize."}},
+        required=["target"],
+    ),
+)
+def _summarize_layer(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    from veritriage.models import Intent, Question
+
+    return _ask(services, arguments, Question(intent=Intent.SUMMARIZE, target=str(arguments["target"])))
+
+
+@register_tool(
+    "conversation_vocabulary",
+    "The phrasings the deterministic parser understands. Questions are matched "
+    "against this vocabulary, never guessed at.",
+    {"type": "object", "properties": {}},
+)
+def _conversation_vocabulary(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    from veritriage.models import Intent
+
+    return {
+        "phrasings": services.conversation_vocabulary(),
+        "intents": [i.value for i in Intent],
+    }

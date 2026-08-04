@@ -160,6 +160,8 @@ reasoning engine; it just sees more nodes.
 | Interactive planning, live debugging, CI investigation, tool execution | consumers of `DebugPlan`; planning stays advisory (M14) |
 | A new structural facet (power domains, ports, FSMs, packages) | one `register_extractor` class, nothing else (M15) |
 | Cross-probing, IDE hierarchy, waveform navigation, semantic search | clients over `DesignQuery`; node IDs are stable and citable (M15) |
+| A new kind of question | one `register_handler` class, nothing else (M16) |
+| GPT, Claude, Gemini, local models, voice, Slack, IDE copilots | translators producing `Question` objects and rendering `Answer` objects (M16) |
 | Jira / CI / emulation / formal integrations | adapters around the RegressionRecord vocabulary |
 | Learned similarity embeddings | an `EmbeddingProvider` implementation in `similarity/` |
 | VS Code / Slack / GitHub Action / MCP server | front-ends over `veritriage.pipeline.analyze()` |
@@ -384,6 +386,37 @@ hierarchy rather than a declaration are marked `inferred`
 Graph (`test_design_never_enters_the_evidence_graph`), partial models yield
 smaller graphs rather than errors, and a new structural facet is one
 registration (`test_new_extractor_needs_only_registration`).
+
+## Conversation Engine (M16): the intelligence becomes navigable
+
+The last layer, and the only one that owns no intelligence at all. The
+Conversation Engine (`veritriage/conversation/`) turns a finished investigation
+into something an engineer can interrogate: structured questions, answers
+assembled from artifacts that already exist, navigation state that carries
+between turns, and suggested follow-ups that make movement possible without
+parsing prose. Full design: [CONVERSATION_ENGINE.md](CONVERSATION_ENGINE.md).
+
+The load-bearing law, pinned by `tests/test_conversation.py`: **conversation
+navigates; it never concludes.** Asking any number of questions leaves the
+report and the graph byte-identical
+(`test_conversation_never_mutates_the_session`), every citation resolves to a
+real artifact (`test_every_reference_resolves_to_a_real_artifact`), and the
+engine strips any that does not rather than trusting a handler
+(`test_unresolvable_citations_are_stripped_by_the_engine`).
+
+Questions are structured objects. A deterministic parser maps a declared,
+finite vocabulary onto intents and reports an honest miss when a phrase falls
+outside it (`test_out_of_vocabulary_declares_what_it_understands`), because
+guessing at meaning is the one thing this layer must never do. There is no
+language model, no NLP library, and no generated prose
+(`test_no_ai_in_conversation`); a future LLM becomes a translator producing
+`Question` objects and rendering `Answer` objects, never an owner of either.
+
+Nothing is persisted: a `ConversationSession` is serializable and handed back to
+the caller, because navigation state is not intelligence and does not belong in
+a store (`test_conversation_persists_nothing`). And `conversation/` never
+imports `workspace/`: the workspace exposes conversation, not the reverse
+(`test_conversation_never_imports_the_workspace`).
 
 ## Collaborative Investigation Platform (M10): portable investigations
 

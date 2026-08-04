@@ -30,7 +30,9 @@ what it costs, and how you will know when you are done. A **Design
 Intelligence Engine** underpins all of it with a structural understanding of
 the system: a Design Graph of modules, interfaces, clock and reset domains,
 address regions, and verification components, joined by typed relationships
-and derived deterministically from the project model.
+and derived deterministically from the project model. A **Conversation
+Engine** finally makes all of it navigable: grounded, structured questions
+whose every statement cites an artifact that already exists.
 
 ```
 veritriage analyze simulation.log coverage.txt test_metadata.json
@@ -105,7 +107,11 @@ stays deterministic without executing anything, and
 [docs/DESIGN_INTELLIGENCE.md](docs/DESIGN_INTELLIGENCE.md) for Design
 Intelligence: why the Design Graph is derived from the Project Model rather
 than extracted from source, why it is a third graph beside Evidence and
-Knowledge, and how structural questions become deterministic traversals.
+Knowledge, and how structural questions become deterministic traversals, and
+[docs/CONVERSATION_ENGINE.md](docs/CONVERSATION_ENGINE.md) for the Conversation
+Engine: why conversation is navigation rather than reasoning, how a declared
+vocabulary keeps it honest without a language model, and how an LLM later
+becomes a renderer of conversation objects rather than an owner of them.
 
 ## Installation
 
@@ -186,8 +192,15 @@ veritriage analyze simulation.log --no-plan -o out/        # opt out
 veritriage design .                                        # the structural graph
 veritriage design . --module l2_cache                      # one element and its relationships
 
+# Conversation: ask grounded questions about an investigation. Not a chatbot and
+# not an LLM wrapper: questions are matched against a declared vocabulary (never
+# guessed at), answers are assembled from artifacts that already exist, and every
+# statement cites evidence, knowledge, design, agent, learning, or plan IDs.
+veritriage ask simulation.log -q "why is this a testbench issue?"
+veritriage ask simulation.log -q "why not rtl_bug" -q "show only error" -q "trace"
+
 # Workspace and MCP: VeriTriage as an external investigation service.
-# `veritriage mcp` serves 51 investigation tools over stdio, so Claude Code,
+# `veritriage mcp` serves 59 investigation tools over stdio, so Claude Code,
 # Cursor, or any MCP host can analyze regressions, walk evidence, search the
 # knowledge base, and query history: the CLI and MCP share the same services.
 veritriage mcp                                             # MCP tool server (stdio)
@@ -293,7 +306,8 @@ As of v1.0.0 the core is stable and its public API (WorkspaceServices, the MCP
 tool table, the orchestrator step/profile registries, the `.vtb` bundle format,
 since v1.8.0 the `Agent` / `ReasoningProvider` contracts, since v1.9.0 the
 `Learner` / `LearningArtifact` contracts, since v1.10.0 the `StepSource` /
-`DebugPlan` contracts, and since v1.11.0 the `StructureExtractor` / `DesignGraph`
+`DebugPlan` contracts, since v1.11.0 the `StructureExtractor` / `DesignGraph`
+contracts, and since v1.12.0 the `Question` / `Answer` / `QuestionHandler`
 contracts) is frozen; future
 work is integrations over existing seams: AI providers (Claude, GPT, Gemini,
 local models, MCP-hosted reasoners) as `ReasoningProvider` implementations

@@ -43,6 +43,17 @@ from veritriage.models.planning import (
     StepKind,
     StepValuation,
 )
+from veritriage.models.conversation import (
+    Answer,
+    AnswerSection,
+    ConversationSession,
+    ConversationTurn,
+    Intent,
+    NavigationContext,
+    Question,
+    Reference,
+    ReferenceKind,
+)
 from veritriage.models.design import (
     ClockCrossingView,
     ClockDomainView,
@@ -133,6 +144,15 @@ __all__ = [
     "AgentReliability",
     "AgentResult",
     "AnalysisReport",
+    "Answer",
+    "AnswerSection",
+    "ConversationSession",
+    "ConversationTurn",
+    "Intent",
+    "NavigationContext",
+    "Question",
+    "Reference",
+    "ReferenceKind",
     "AssertionFailure",
     "ClassificationResult",
     "ConfidenceContribution",

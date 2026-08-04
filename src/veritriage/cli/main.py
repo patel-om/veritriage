@@ -307,6 +307,65 @@ def plan(
 
 
 @app.command()
+def ask(
+    artifacts: List[Path] = typer.Argument(..., help="Artifacts to investigate, then ask about."),
+    question: List[str] = typer.Option(
+        [],
+        "--question",
+        "-q",
+        help="A question, in the platform's vocabulary. Repeat to hold a conversation; "
+        "context carries between them.",
+    ),
+    db: Path = typer.Option(DEFAULT_DB, "--db", help="Regression database."),
+) -> None:
+    """Ask grounded questions about an investigation."""
+    services = WorkspaceServices(db=db)
+    try:
+        session = services.investigate(artifacts)
+    except (FileNotFoundError, ValueError) as exc:
+        _err.print(f"[red]error:[/red] {escape(str(exc))}")
+        raise typer.Exit(code=2)
+
+    questions = list(question) or ["help"]
+    engine = services.start_conversation(session)
+    for text in questions:
+        answer = engine.ask(text)
+        body = Table.grid(padding=(0, 1))
+        body.add_column()
+        body.add_row(f"[bold]{escape(answer.summary)}[/bold]")
+        for part in answer.sections:
+            body.add_row("")
+            body.add_row(f"[bold]{escape(part.heading)}[/bold]")
+            for statement in part.statements:
+                body.add_row(f"  • {escape(statement)}")
+            for reference in part.references[:6]:
+                body.add_row(
+                    f"    [dim]{reference.kind.value}:{reference.ref_id}"
+                    f"  {escape(reference.label[:60])}[/dim]"
+                )
+        if answer.limitations:
+            body.add_row("")
+            body.add_row("[bold]Limits[/bold]")
+            for limit in answer.limitations:
+                body.add_row(f"  [yellow]![/yellow] {escape(limit)}")
+        if answer.followups:
+            body.add_row("")
+            hints = ", ".join(
+                f"{f.intent.value}" + (f" {f.target}" if f.target else "")
+                for f in answer.followups
+            )
+            body.add_row(f"[dim]next: {escape(hints)}[/dim]")
+        console.print(
+            Panel(
+                body,
+                title=f"{escape(text)}  [{answer.intent.value}]",
+                border_style="blue" if answer.resolved else "yellow",
+            )
+        )
+    console.print(f"[dim]navigation: {escape(engine.session.context.describe())}[/dim]")
+
+
+@app.command()
 def design(
     root: Path = typer.Argument(Path("."), help="Project root or manifest path."),
     module: Optional[str] = typer.Option(
