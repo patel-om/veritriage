@@ -25,6 +25,7 @@ from veritriage.engineering import (
     stored_context,
 )
 from veritriage.agents import AgentCoordinator, build_agent_context
+from veritriage.planning import Planner, PlanningContext
 from veritriage.graph.builder import GraphBuilder
 from veritriage.graph.graph import EvidenceGraph
 from veritriage.knowledge import KnowledgeEngine, knowledge_reasoning_rules
@@ -55,6 +56,7 @@ def analyze(
     project: ProjectModel | None = None,
     agents: bool = True,
     learning: LearningContext | None = None,
+    plan: bool = True,
 ) -> AnalysisOutcome:
     """Analyze one or more artifacts and return the report plus the graph.
 
@@ -86,6 +88,9 @@ def analyze(
             influence at merge time, and is attached to the report. The
             pipeline never opens the learning store, so it stays a pure
             function of its inputs.
+        plan: Derive an investigation plan from the finished report and attach
+            it as ``report.plan``. On by default. Planning consumes conclusions
+            and never changes them, so turning this off changes only that field.
 
     Raises:
         FileNotFoundError: If any path does not exist.
@@ -188,6 +193,12 @@ def analyze(
             )
         )
         report.agents = None if assessment.is_empty else assessment
+    # Planning runs last of all, over everything above it: it is the only layer
+    # that consumes conclusions from every other layer, and the only one that
+    # answers "what should happen next?" rather than "what is true?".
+    if plan:
+        derived = Planner().plan(PlanningContext(report=report, graph=graph))
+        report.plan = None if derived.is_empty else derived
     return AnalysisOutcome(report=report, graph=graph)
 
 

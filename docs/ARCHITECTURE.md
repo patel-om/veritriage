@@ -112,14 +112,16 @@ never modifies it (pinned by `tests/test_history.py`). Full design:
 
 ## Report layer
 
-`AnalysisReport` (schema v10) carries the classification, merged run summary,
+`AnalysisReport` (schema v11) carries the classification, merged run summary,
 graph statistics, evidence with node references, the reasoning result, the
 knowledge context, the waveform, engineering, and project contexts, the agent
-assessment, the learning context, and optional historical context. One analysis writes
+assessment, the learning context, the investigation plan, and optional
+historical context. One analysis writes
 three artifacts: `analysis.json`, `evidence_graph.json` (the full
 serialized graph), and `report.html` (self-contained, light/dark aware,
 with Evidence Graph, Verification Knowledge, Agent Findings, What Prior
-Investigations Suggest, and Historical Context sections). The CLI renders the same models to the terminal with Rich.
+Investigations Suggest, Recommended Investigation, and Historical Context
+sections). The CLI renders the same models to the terminal with Rich.
 
 ## AI layer
 
@@ -154,6 +156,8 @@ reasoning engine; it just sees more nodes.
 | A new AI provider (Claude, GPT, Gemini, local, MCP-hosted) | one `ReasoningProvider` implementation, nothing else (M12) |
 | A new thing to learn from history (flakiness, cost, cycle time) | one `register_learner` class, nothing else (M13) |
 | Learned embeddings, semantic retrieval, graph similarity | an `EmbeddingProvider` or a `Learner`; the Learning Engine contracts are unchanged (M13) |
+| A new kind of debug step (emulation, lab bring-up, silicon) | one `register_source` class, nothing else (M14) |
+| Interactive planning, live debugging, CI investigation, tool execution | consumers of `DebugPlan`; planning stays advisory (M14) |
 | Jira / CI / emulation / formal integrations | adapters around the RegressionRecord vocabulary |
 | Learned similarity embeddings | an `EmbeddingProvider` implementation in `similarity/` |
 | VS Code / Slack / GitHub Action / MCP server | front-ends over `veritriage.pipeline.analyze()` |
@@ -313,6 +317,39 @@ from the same evidence and only its influence moves
 without gaining a dependency: hints arrive as plain data on `AgentContext`, and
 `agents/` never imports `learning/`
 (`test_agents_gain_memory_without_importing_learning`).
+
+## Planning Engine (M14): from explaining failures to planning investigations
+
+The last intelligence layer, and the only one that answers "what should happen
+next?" rather than "what is true?". The Planner (`veritriage/planning/`)
+consumes the finished report and derives a `DebugPlan`: steps ordered by value
+against effort, decision points that branch on competing explanations, the
+evidence still missing and why it matters, completion conditions, and stated
+risks. Full design: [PLANNING_ENGINE.md](PLANNING_ENGINE.md).
+
+The load-bearing law, pinned by `tests/test_planning.py`: **the Planner
+contributes structure, never content.** Every step is derived from an artifact
+that already exists (a knowledge playbook step, an agent recommendation, a
+reasoning recommendation, or an evidence gap) and names it in `derived_from`
+(`test_every_step_is_derived_from_an_existing_artifact`,
+`test_playbook_steps_keep_their_curated_wording`). Sources cannot rank
+themselves: `StepCandidate` has no priority field, so valuation and ordering
+belong to the Planner alone (`test_a_source_cannot_rank_itself`).
+
+Planning consumes conclusions without changing them: the graph, the
+classification, the reasoning hypotheses, and the agent assessment are
+identical with planning on or off
+(`test_planning_never_changes_upstream_conclusions`), and
+`reasoning.recommendations` survives untouched. Planning never executes: no
+I/O, no subprocess, no tool invocation anywhere in the package
+(`test_planning_never_executes_anything`). Branching stays deterministic
+because `AUTO` decision conditions are settled by evidence already in the
+graph, while `ASK` conditions are rendered as open questions and left standing
+(`test_evidence_already_in_the_graph_resolves_a_decision`).
+
+The vocabulary is deliberately separate from M9 orchestration: an
+`InvestigationPlan` is what the platform runs, a `DebugPlan` is what the
+engineer does (`test_planning_does_not_collide_with_m9_orchestration`).
 
 ## Collaborative Investigation Platform (M10): portable investigations
 

@@ -14,6 +14,7 @@ from veritriage.models.engineering import EngineeringContextView
 from veritriage.models.history import HistoricalContext
 from veritriage.models.knowledge import KnowledgeContext
 from veritriage.models.learning import LearningContext
+from veritriage.models.planning import DebugPlan
 from veritriage.models.project import ProjectContext
 from veritriage.models.reasoning import ReasoningResult
 from veritriage.models.waveform import WaveformContext
@@ -83,7 +84,7 @@ class AnalysisReport(BaseModel):
     Version 2 introduces multi-artifact input and the Evidence Graph.
     """
 
-    schema_version: str = "10"
+    schema_version: str = "11"
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     input_files: list[str] = Field(description="Paths of the analyzed artifacts, as given on the CLI.")
     parser_names: list[str] = Field(description="Parsers used, one per input artifact.")
@@ -144,6 +145,15 @@ class AnalysisReport(BaseModel):
         "one. Hints, agent reliability, project memory, and recurring patterns, each "
         "linked back to the regressions it was learned from. Never a conclusion: learning "
         "informs, it does not decide.",
+    )
+    plan: DebugPlan | None = Field(
+        default=None,
+        description="Planning Engine output: a structured, branching investigation plan "
+        "derived from the conclusions above. Every step names the artifact it restates; "
+        "the Planner contributes structure, ordering, branching, and valuation, never new "
+        "debug advice, and never executes anything. Distinct from the M9 orchestration "
+        "`InvestigationPlan`, which is what the platform runs rather than what the "
+        "engineer should do.",
     )
     ai_summary: str | None = Field(
         default=None, description="Optional AI-generated narrative; grounded in `evidence` only."

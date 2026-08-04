@@ -27,8 +27,10 @@ if TYPE_CHECKING:
         AgentResult,
         LearningArtifact,
         LearningContext,
+        DebugPlan,
         LearningStatistics,
         LogAnnotationView,
+        PlanProgress,
         ProjectContext,
         ProjectProfile,
         ProjectSummary,
@@ -162,6 +164,7 @@ class WorkspaceServices:
         project: "ProjectModel | None" = None,
         agents: bool = True,
         learn: bool = True,
+        plan: bool = True,
     ) -> InvestigationSession:
         """Run one full analysis and wrap it into an immutable session.
 
@@ -186,6 +189,7 @@ class WorkspaceServices:
             project=project,
             agents=agents,
             learning=recalled,
+            plan=plan,
         )
         if record_history and self._db is not None:
             from veritriage.history import HistoryEngine, capture_execution_metadata
@@ -344,6 +348,44 @@ class WorkspaceServices:
         if engine is None:
             return None
         return engine.recall(project_key).project_profile
+
+    # --- Planning Engine (M14) ---------------------------------------------
+    #
+    # Read-only accessors over the plan the pipeline already derived, plus a
+    # pure re-derivation for callers holding only a session. Planning opens no
+    # store and executes nothing, so none of this needs configuration.
+
+    def investigation_plan(self, session: InvestigationSession) -> "DebugPlan | None":
+        """The investigation plan attached to a session, if planning ran."""
+        return session.report.plan
+
+    def build_investigation_plan(self, session: InvestigationSession) -> "DebugPlan":
+        """Re-derive the plan from a session. Pure: same session, same plan."""
+        from veritriage.planning import build_plan
+
+        return build_plan(session.report, session.graph)
+
+    def next_debug_step(self, session: InvestigationSession):
+        """The single highest-value next action, or None when there is nothing to do."""
+        plan = session.report.plan or self.build_investigation_plan(session)
+        return plan.steps[0] if plan.steps else None
+
+    def missing_evidence(self, session: InvestigationSession) -> list:
+        """What the platform does not have, and why each item would matter."""
+        plan = session.report.plan or self.build_investigation_plan(session)
+        return list(plan.evidence_requests)
+
+    def decision_tree(self, session: InvestigationSession) -> list:
+        """Every branching point in the plan, with its outcomes."""
+        plan = session.report.plan or self.build_investigation_plan(session)
+        return [s.decision for s in plan.all_steps() if s.decision is not None]
+
+    def plan_progress(self, session: InvestigationSession) -> "PlanProgress":
+        """How far along the investigation is, given the evidence available now."""
+        from veritriage.planning import plan_progress
+
+        plan = session.report.plan or self.build_investigation_plan(session)
+        return plan_progress(plan, session.graph)
 
     def save(self, session: InvestigationSession) -> Path:
         return self._store.save(session)

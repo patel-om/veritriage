@@ -9,7 +9,7 @@ what's next" record.
 
 Repo: https://github.com/patel-om/veritriage (public, Apache-2.0)
 Local path: `/Users/ompatel/Documents/veritriage`
-Current version: **1.9.0**
+Current version: **1.10.0**
 Portfolio integration: card + sample artifacts in
 `/Users/ompatel/Documents/Om Portfolio` (`index.html`,
 `veritriage-sample-report.html`, `veritriage-sample-dashboard.html`)
@@ -47,12 +47,17 @@ metadata - into:
    combinations, agent reliability, project profiles, protocol statistics,
    recommendation outcomes, hypothesis history), recalled as hints and a
    bounded agent calibration map. It remembers; it does not decide.
-7. A persistent **Regression Database** (SQLite) giving the platform
+7. A **Planning Engine** (M14): the layer that answers "what should happen
+   next?" rather than "what is true?". Derives a branching `DebugPlan` from
+   the conclusions: steps ordered by value against effort, decision points,
+   the evidence still missing and why it matters, completion conditions, and
+   risks. It contributes structure, never content.
+8. A persistent **Regression Database** (SQLite) giving the platform
    historical memory: deterministic failure signatures, similarity search,
    "have we seen this before?", failure clustering, and team-level
    analytics via an engineering dashboard.
-8. An **optional AI review** that reasons only over the bounded, normalized
-   output of stages 1-7 (never raw files) and only explains/annotates -
+9. An **optional AI review** that reasons only over the bounded, normalized
+   output of stages 1-8 (never raw files) and only explains/annotates -
    it cannot alter the graph, classification, ranking, or knowledge
    conclusions.
 
@@ -678,6 +683,72 @@ Deferred to M13.x: learned embeddings behind the existing `EmbeddingProvider`
 seam; a learning-aware dashboard section; recommendation reranking from
 `RecommendationOutcome` (the artifacts exist, the reranker does not).
 
+### Milestone 14 (v1.10.0) - Planning Engine
+
+The milestone that moves VeriTriage from explaining failures to planning
+investigations. New top-level package `planning/`, above learning, below the
+pipeline. It is the only layer that answers "what should happen next?".
+
+**The critical evaluation that changed the milestone's shape.** The requested
+artifact names collided with frozen M9 public API: `InvestigationPlan`
+(models/orchestration.py, exported from `veritriage.models`, embedded in
+`InvestigationSession.plan` and therefore inside every `.vtb` bundle),
+`InvestigationStep` (the orchestrator step ABC), and `PlanStep`. The conceptual
+clash mattered more than the collision: **M9's plan is what the platform will
+run; M14's plan is what the engineer should do.** Machine workflow versus human
+debug strategy. Adopted `DebugPlan` / `DebugStep` / `StepSource` instead, and
+pinned the separation with `test_planning_does_not_collide_with_m9_orchestration`.
+
+Two further design changes adopted before coding:
+- **Agents needed no change at all.** The spec asked for agents to "recommend
+  planning steps", which would have meant editing the frozen `Agent` ABC. But
+  agents already emit `AgentRecommendation` and the Coordinator already merges
+  them, so planning just reads `report.agents.recommendations`. Zero agent
+  edits.
+- **The Planner must not invent advice.** Every `DebugStep` is *derived* from an
+  existing artifact and names it in `derived_from`. Otherwise the platform grows
+  an unaudited advice generator on top of five audited layers. Same move as M12
+  (agents aggregate, never extract) and M13 (learning aggregates, never decides).
+
+**The load-bearing decision:** the Planner contributes structure, ordering,
+branching, and valuation; never content. `StepCandidate` deliberately has no
+priority field, so a source physically cannot rank itself.
+
+Structure: `context.py` (`PlanningContext` + `StepCandidate`; `competing()`
+decides which explanations are still live, by absolute margin OR ratio to the
+leader), `registry.py` (`@register_source`, ordered by `rank` so curated
+knowledge outranks generic templates), `sources/` (knowledge playbooks, agent
+recommendations, reasoning recommendations, evidence gaps), `valuation.py`
+(`value / effort` with every term recorded), `tree.py` (decision points, AUTO
+conditions settled from the graph, ASK conditions left open; risks; completion
+conditions), `progress.py` (pure function of plan plus graph, no store),
+`engine.py` (`Planner`: gather, deduplicate, value, order, branch).
+
+Learning contributes priority only, bounded to +/-0.5 and recorded in the
+valuation. Project Intelligence shapes strategy and removes the "no project
+model" risk. Planning never executes: no I/O, no subprocess, no tool call.
+
+Additive edits only: `AnalysisReport.plan` (schema `10` -> `11`),
+`analyze(plan=True)`, `investigate(plan=True)`, five WorkspaceServices methods,
+6 MCP tools (37 -> 43), CLI `plan` command and `--plan/--no-plan`, and a report
+"Recommended Investigation" section. `reasoning.recommendations` untouched.
+
+47 new tests (534 total). Design doc: `docs/PLANNING_ENGINE.md` (approved before
+implementation). Crown jewel `test_new_step_source_needs_only_registration`: a
+throwaway emulation source defined in the test is deduplicated, valued, ordered,
+leads the plan on merit, and reaches the report with zero core changes. Two
+things caught during implementation: the `competing()` ratio was initially 0.6
+and never branched on a realistic 0.65/0.38 spread (fixed to 0.5); a guard
+test banned the substring `requests.` which false-positived on a local list
+variable (fixed to check imports via AST); and the first decision trees offered
+*identical* steps on both branches, which makes a branch pointless (fixed by
+assigning branch steps greedily, most category-specific first, never reusing a
+step across outcomes; pinned by `test_branches_give_different_advice`).
+
+Deferred to M14.x: interactive planning (observations fed back into ASK
+conditions); a `plan` orchestration step; plan diffing across runs; VS Code
+plan rendering.
+
 ---
 
 ## 3. Current architecture map
@@ -721,9 +792,9 @@ src/veritriage/
                      report sections), search.py (deterministic search). Imports
                      the core; NOTHING in the core imports it (guard-enforced).
   mcp/               M8: tools.py (transport-agnostic tool table over services,
-                     37 tools incl. 5 M9 orchestration, 7 M10 collaboration,
-                     4 M11 project, 3 M12 agent, and 6 M13 learning tools;
-                     register_tool extension point), server.py
+                     43 tools incl. 5 M9 orchestration, 7 M10 collaboration,
+                     4 M11 project, 3 M12 agent, 6 M13 learning, and 6 M14
+                     planning tools; register_tool extension point), server.py
                      (dependency-free MCP stdio JSON-RPC transport). Serve with
                      `veritriage mcp`.
   orchestrator/      M9: steps.py (InvestigationStep + register_step + 10 built-in
@@ -774,6 +845,17 @@ src/veritriage/
                      plus the history/feedback record vocabulary. Nothing below imports
                      it, and agents/ in particular does not: hints reach agents as plain
                      data on AgentContext (guard-enforced).
+  planning/          M14: context.py (PlanningContext + StepCandidate, which has NO
+                     priority field so a source cannot rank itself), registry.py
+                     (@register_source, rank-ordered), sources/ (knowledge playbooks,
+                     agent recs, reasoning recs, evidence gaps), valuation.py
+                     (value/effort, every term recorded), tree.py (decision points:
+                     AUTO settled from the graph, ASK left open; risks; completion),
+                     progress.py (pure function, no store), engine.py (Planner).
+                     Sits ABOVE learning; imports only models and graph. Never
+                     executes and never invents advice: every step names the artifact
+                     it restates. Vocabulary deliberately distinct from M9
+                     orchestration (DebugPlan vs InvestigationPlan).
   reports/           HTML report generator (Jinja2, self-contained, light/dark).
   cli/main.py        Typer app: analyze, parsers, knowledge, waveform, context,
                      project, dut, env, flow, explain, investigate, impact, mcp, sessions, run,
@@ -812,13 +894,14 @@ input artifacts.
 **Report schema version history:** v1 (M1) → v2 adds Evidence Graph (M2) →
 v3 adds `reasoning` (M3) → v4 adds `history` (M4) → v5 adds `knowledge`
 (M5) → v6 adds `waveform` (M6) → v7 adds `engineering` (M7) → v8 adds
-`project` (M11) → v9 adds `agents` (M12) → v10 adds `learning` (M13). Bump on any breaking field change; tests assert the current
+`project` (M11) → v9 adds `agents` (M12) → v10 adds `learning` (M13) →
+v11 adds `plan` (M14). Bump on any breaking field change; tests assert the current
 value (`test_cli.py`).
 
-**Current test count: 487**, across `tests/test_*.py`: parsers, rules,
+**Current test count: 534**, across `tests/test_*.py`: parsers, rules,
 graph, artifact parsers, models, report, CLI, AI boundary, reasoning,
 history, analytics, knowledge, waveform, engineering, workspace/MCP,
-orchestrator, collaboration, project, agents, learning. Run with `.venv/bin/python -m pytest -q`
+orchestrator, collaboration, project, agents, learning, planning. Run with `.venv/bin/python -m pytest -q`
 from the repo root.
 
 ---

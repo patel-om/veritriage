@@ -89,6 +89,12 @@ def analyze(
         help="Recall what prior investigations suggest, and calibrate agent influence "
         "from their track record.",
     ),
+    plan: bool = typer.Option(
+        True,
+        "--plan/--no-plan",
+        help="Derive a structured investigation plan from the conclusions and attach "
+        "it to the report.",
+    ),
     db: Path = typer.Option(
         DEFAULT_DB, "--db", help="Regression database file (created on first use)."
     ),
@@ -111,6 +117,7 @@ def analyze(
             project=project_model,
             agents=agents,
             learn=learn,
+            plan=plan,
         )
     except (FileNotFoundError, ValueError) as exc:
         _err.print(f"[red]error:[/red] {escape(str(exc))}")
@@ -229,6 +236,74 @@ def learn(
             "[dim]No engineer feedback yet, so no specialist is calibrated. "
             "Record judgments with 'veritriage feedback' to enable calibration.[/dim]"
         )
+
+
+@app.command()
+def plan(
+    artifacts: List[Path] = typer.Argument(..., help="Artifacts to plan an investigation for."),
+    db: Path = typer.Option(DEFAULT_DB, "--db", help="Regression database (for history and learning)."),
+) -> None:
+    """Produce a structured investigation plan for a set of artifacts."""
+    services = WorkspaceServices(db=db)
+    try:
+        session = services.investigate(artifacts)
+    except (FileNotFoundError, ValueError) as exc:
+        _err.print(f"[red]error:[/red] {escape(str(exc))}")
+        raise typer.Exit(code=2)
+    derived = services.investigation_plan(session) or services.build_investigation_plan(session)
+
+    console.print(Panel(
+        f"[bold]{escape(derived.objective)}[/bold]\n\n[dim]{escape(derived.strategy)}[/dim]",
+        title=f"Investigation plan · {derived.plan_id}",
+        border_style="blue",
+    ))
+
+    table = Table(title=f"Recommended steps (total effort {derived.estimated_effort})")
+    for column in ("#", "Kind", "Action", "Value/effort", "Derived from"):
+        table.add_column(column)
+    for index, step in enumerate(derived.steps, start=1):
+        table.add_row(
+            str(index),
+            step.kind.value,
+            step.action,
+            f"{step.valuation.priority_score:.2f}",
+            step.derived_from,
+        )
+    console.print(table)
+
+    for step in derived.steps:
+        if step.decision is None:
+            continue
+        console.print(f"\n[bold]Decision point:[/bold] {escape(step.decision.question)}")
+        if step.decision.resolved_outcome:
+            console.print(
+                f"  [green]already answered by this run's evidence:[/green] "
+                f"{escape(step.decision.resolved_outcome)}"
+            )
+            console.print(f"  [dim]{escape(step.decision.resolved_because or '')}[/dim]")
+        for branch in step.decision.branches:
+            console.print(f"  [bold]->[/bold] {escape(branch.outcome)}")
+            for child in branch.steps:
+                console.print(f"       - {escape(child.action)}")
+
+    if derived.evidence_requests:
+        requests = Table(title="Evidence still needed")
+        requests.add_column("What")
+        requests.add_column("Why it matters")
+        for request in derived.evidence_requests:
+            requests.add_row(request.what, request.why)
+        console.print(requests)
+
+    if derived.completion_conditions:
+        console.print("\n[bold]You are done when[/bold]")
+        for condition in derived.completion_conditions:
+            mark = "[green]done[/green]" if condition.satisfied else "[dim]open[/dim]"
+            console.print(f"  {mark} {escape(condition.statement)}")
+
+    if derived.risks:
+        console.print("\n[bold]Risks[/bold]")
+        for risk in derived.risks:
+            console.print(f"  [yellow]![/yellow] {escape(risk)}")
 
 
 @app.command()
@@ -1085,6 +1160,27 @@ def _print_summary(report: AnalysisReport) -> None:
         if a.agrees_with_reasoning is False:
             body.add_row(
                 "  [yellow]specialists disagree with the deterministic ranking[/yellow]"
+            )
+    if report.plan is not None and report.plan.steps:
+        pl = report.plan
+        body.add_row("")
+        body.add_row(
+            f"[bold]Investigation plan[/bold]  [dim](effort {pl.estimated_effort}, "
+            f"{len(pl.all_steps())} steps)[/dim]"
+        )
+        body.add_row(f"  [dim]{escape(pl.objective)}[/dim]")
+        for step in pl.steps[:3]:
+            body.add_row(
+                f"  • {escape(step.action)}  [dim]{step.kind.value} · "
+                f"value/effort {step.valuation.priority_score:.2f}[/dim]"
+            )
+        top = pl.steps[0].decision if pl.steps else None
+        if top is not None:
+            body.add_row(f"  [dim]then branches on: {escape(top.question)}[/dim]")
+        if pl.evidence_requests:
+            body.add_row(
+                f"  [dim]evidence still needed: "
+                f"{len(pl.evidence_requests)} item(s)[/dim]"
             )
     steps = (
         report.reasoning.recommendations

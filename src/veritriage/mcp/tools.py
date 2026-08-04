@@ -734,3 +734,86 @@ def _project_memory(services: WorkspaceServices, arguments: dict[str, Any]) -> A
 def _similar_investigations(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
     session = _require_session(services, arguments)
     return services.similar_regressions(session, limit=int(arguments.get("limit", 5)))
+
+
+# --- Planning Engine tools (M14) --------------------------------------------
+
+
+@register_tool(
+    "generate_investigation_plan",
+    "The structured, branching debug plan for an investigation: ordered steps "
+    "with purpose and valuation, decision points, evidence still needed, "
+    "completion conditions, and risks. Every step names the artifact it "
+    "restates. Advisory only: planning never executes anything.",
+    _SESSION_ARG,
+)
+def _generate_investigation_plan(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    session = _require_session(services, arguments)
+    return services.investigation_plan(session) or services.build_investigation_plan(session)
+
+
+@register_tool(
+    "next_debug_step",
+    "The single highest-value next action for an investigation, with what it "
+    "would tell you, what it costs, and the arithmetic behind its priority.",
+    _SESSION_ARG,
+)
+def _next_debug_step(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    session = _require_session(services, arguments)
+    step = services.next_debug_step(session)
+    if step is None:
+        raise KeyError(f"Session {session.session_id!r} has no outstanding debug steps")
+    return step
+
+
+@register_tool(
+    "missing_evidence",
+    "What the platform does not have for an investigation, why each item "
+    "matters, and which competing explanations it would separate.",
+    _SESSION_ARG,
+)
+def _missing_evidence(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    return services.missing_evidence(_require_session(services, arguments))
+
+
+@register_tool(
+    "decision_tree",
+    "The branching points of an investigation plan: the question at each fork, "
+    "what each outcome implies, and whether this run's evidence already "
+    "settled it.",
+    _SESSION_ARG,
+)
+def _decision_tree(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    return services.decision_tree(_require_session(services, arguments))
+
+
+@register_tool(
+    "investigation_progress",
+    "How far along an investigation is: which evidence requests the current "
+    "graph satisfies, which remain outstanding, and which questions are still "
+    "open. A pure function of the plan and the evidence, with no stored state.",
+    _SESSION_ARG,
+)
+def _investigation_progress(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    return services.plan_progress(_require_session(services, arguments))
+
+
+@register_tool(
+    "project_debug_strategy",
+    "The planning strategy for an investigation: the objective, the shape of "
+    "the approach adapted to this project's protocols and topology, the "
+    "estimated effort, and the risks that could make the plan mislead.",
+    _SESSION_ARG,
+)
+def _project_debug_strategy(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    session = _require_session(services, arguments)
+    plan = services.investigation_plan(session) or services.build_investigation_plan(session)
+    return {
+        "objective": plan.objective,
+        "strategy": plan.strategy,
+        "confidence_target": plan.confidence_target.value if plan.confidence_target else None,
+        "estimated_effort": plan.estimated_effort,
+        "risks": plan.risks,
+        "historical_success": plan.historical_success,
+        "sources": plan.sources,
+    }

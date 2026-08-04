@@ -490,6 +490,105 @@
   </section>
   {% endif %}
 
+  {% if report.plan and report.plan.steps %}
+  {% set pl = report.plan %}
+  <section>
+    <h2>Recommended Investigation</h2>
+    <p class="lead">{{ pl.objective }}</p>
+    <p class="meta">{{ pl.strategy }}</p>
+    <div class="tiles">
+      <div class="tile"><div class="label">Estimated effort</div><div class="value">{{ pl.estimated_effort }}</div></div>
+      <div class="tile"><div class="label">Steps</div><div class="value">{{ pl.all_steps() | length }}</div></div>
+      <div class="tile"><div class="label">Evidence needed</div><div class="value">{{ pl.evidence_requests | length }}</div></div>
+      {% if pl.historical_success is not none %}
+      <div class="tile"><div class="label">Historical success</div><div class="value">{{ "%.0f" | format(pl.historical_success * 100) }}%</div></div>
+      {% endif %}
+    </div>
+    <div class="card">
+      <div class="graph-scroll">
+      <table>
+        <thead><tr><th>#</th><th>Action</th><th>Kind</th><th>Value/effort</th><th>Derived from</th></tr></thead>
+        <tbody>
+        {% for step in pl.steps %}
+          <tr>
+            <td class="num">{{ loop.index }}</td>
+            <td>{{ step.action }}<span class="why" style="display:block; color: var(--muted); font-size: 12.5px;">{{ step.purpose }}{% if step.signals %} Signals: {{ step.signals | join(", ") }}.{% endif %}</span></td>
+            <td><span class="chip">{{ step.kind.value }}</span></td>
+            <td class="num" title="{{ step.valuation.terms | join(' ') }}">{{ "%.2f" | format(step.valuation.priority_score) }}</td>
+            <td><code>{{ step.derived_from }}</code></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+
+    {% for step in pl.steps if step.decision %}
+    {% set dec = step.decision %}
+    <div class="card">
+      <h3>Decision Tree</h3>
+      <p><strong>{{ dec.question }}</strong></p>
+      {% if dec.resolved_outcome %}
+      <p class="meta">Already answered by this run's evidence: <strong>{{ dec.resolved_outcome }}</strong> {{ dec.resolved_because }}</p>
+      {% endif %}
+      <ul class="steps">
+        {% for branch in dec.branches %}
+        <li>
+          <strong>{{ branch.outcome }}</strong>
+          <span style="display:block; color: var(--muted); font-size: 12.5px;">{{ branch.rationale }}</span>
+          <ul class="steps">
+            {% for child in branch.steps %}
+            <li>{{ child.action }} <span style="color: var(--muted);">({{ child.kind.value }}, effort {{ child.valuation.effort }})</span></li>
+            {% endfor %}
+          </ul>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+
+    {% if pl.evidence_requests %}
+    <div class="card">
+      <h3>Evidence Still Needed</h3>
+      <div class="graph-scroll">
+      <table>
+        <thead><tr><th>What</th><th>Why it matters</th><th>Would separate</th></tr></thead>
+        <tbody>
+        {% for request in pl.evidence_requests %}
+          <tr>
+            <td>{{ request.what }}</td>
+            <td>{{ request.why }}</td>
+            <td>{% for category in request.would_discriminate %}{{ category.display_name }}{{ ", " if not loop.last }}{% endfor %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if pl.completion_conditions %}
+    <div class="card">
+      <h3>Expected Root Cause Confirmation</h3>
+      <ul class="steps">
+        {% for condition in pl.completion_conditions %}
+        <li>{% if condition.satisfied %}<span class="dot good"></span>{% else %}<span class="dot muted"></span>{% endif %}{{ condition.statement }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if pl.risks %}
+    <div class="card">
+      <h3>Risk Assessment</h3>
+      <ul class="steps">
+        {% for risk in pl.risks %}<li>{{ risk }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
   {% if report.learning and not report.learning.is_empty %}
   {% set lrn = report.learning %}
   <section>

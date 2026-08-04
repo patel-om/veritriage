@@ -23,7 +23,10 @@ before, what resembled it, and what the historical root cause was. A
 **Learning Engine** then turns that accumulated history into reusable
 knowledge: recurring patterns, evidence combinations, per-specialist
 reliability, and project memory, all derived deterministically and all linked
-back to the investigations they were learned from.
+back to the investigations they were learned from. Finally a **Planning
+Engine** turns all of it into a structured, branching investigation plan:
+what to inspect next, what evidence would confirm or reject each hypothesis,
+what it costs, and how you will know when you are done.
 
 ```
 veritriage analyze simulation.log coverage.txt test_metadata.json
@@ -52,6 +55,8 @@ Regression failure
                                -> merged findings, agreement, conflict)
   -> Learn                    (recurring patterns, agent reliability, project
                                memory -> hints for the next investigation)
+  -> Plan                     (derive a branching debug plan: ordered steps,
+                               decision points, evidence still needed)
   -> Report                   (analysis.json + evidence_graph.json + report.html)
   -> Optional AI review       (reasons ONLY over selected evidence, cites node IDs)
 ```
@@ -86,7 +91,11 @@ future AI provider is one class behind one protocol, and
 [docs/LEARNING_ENGINE.md](docs/LEARNING_ENGINE.md) for the Learning Engine: why
 learning is a pure function of recorded history, how it stays explainable
 without embeddings or models, and how it calibrates without ever overriding
-deterministic evidence.
+deterministic evidence, and
+[docs/PLANNING_ENGINE.md](docs/PLANNING_ENGINE.md) for the Planning Engine: why
+a plan is structurally different from a recommendation, how the Planner
+contributes structure without ever writing debug advice, and how branching
+stays deterministic without executing anything.
 
 ## Installation
 
@@ -150,8 +159,17 @@ veritriage analyze simulation.log -o out/                  # recall on by defaul
 veritriage analyze simulation.log --no-learn -o out/       # opt out
 veritriage feedback reg-... --diagnosis correct            # feedback is what calibration learns from
 
+# Planning Engine: what should I inspect next? Derives a branching investigation
+# plan from the conclusions: steps ordered by value against effort, decision
+# points, the evidence still missing and why it matters, and how you know you
+# are finished. Every step names the artifact it restates; planning never
+# invents advice and never executes anything.
+veritriage plan simulation.log                             # print the investigation plan
+veritriage analyze simulation.log -o out/                  # planning on by default
+veritriage analyze simulation.log --no-plan -o out/        # opt out
+
 # Workspace and MCP: VeriTriage as an external investigation service.
-# `veritriage mcp` serves 37 investigation tools over stdio, so Claude Code,
+# `veritriage mcp` serves 43 investigation tools over stdio, so Claude Code,
 # Cursor, or any MCP host can analyze regressions, walk evidence, search the
 # knowledge base, and query history: the CLI and MCP share the same services.
 veritriage mcp                                             # MCP tool server (stdio)
@@ -196,9 +214,9 @@ Each run writes three artifacts to the output directory:
 
 | File | Contents |
 |---|---|
-| `analysis.json` | Classification, confidence, evidence (with graph node IDs), reasoning, agent findings, learned hints, historical context, run summary, graph stats |
+| `analysis.json` | Classification, confidence, evidence (with graph node IDs), reasoning, agent findings, learned hints, the investigation plan, historical context, run summary, graph stats |
 | `evidence_graph.json` | The full serialized Evidence Graph: every node and relationship |
-| `report.html` | Self-contained EDA-style dashboard (light/dark), hypotheses, agent findings, what prior investigations suggest, historical context, evidence timeline, next steps |
+| `report.html` | Self-contained EDA-style dashboard (light/dark), hypotheses, agent findings, what prior investigations suggest, the recommended investigation with its decision tree, historical context, evidence timeline, next steps |
 
 Each analysis is also stored in the regression database (opt out with
 `--no-history`), which powers `veritriage history`, `veritriage dashboard`,
@@ -255,8 +273,9 @@ untouched by design
 
 As of v1.0.0 the core is stable and its public API (WorkspaceServices, the MCP
 tool table, the orchestrator step/profile registries, the `.vtb` bundle format,
-since v1.8.0 the `Agent` / `ReasoningProvider` contracts, and since v1.9.0 the
-`Learner` / `LearningArtifact` contracts) is frozen; future
+since v1.8.0 the `Agent` / `ReasoningProvider` contracts, since v1.9.0 the
+`Learner` / `LearningArtifact` contracts, and since v1.10.0 the `StepSource` /
+`DebugPlan` contracts) is frozen; future
 work is integrations over existing seams: AI providers (Claude, GPT, Gemini,
 local models, MCP-hosted reasoners) as `ReasoningProvider` implementations
 behind the M12 seam -> a VS Code
