@@ -9,7 +9,7 @@ what's next" record.
 
 Repo: https://github.com/patel-om/veritriage (public, Apache-2.0)
 Local path: `/Users/ompatel/Documents/veritriage`
-Current version: **1.13.0**
+Current version: **1.14.0**
 Portfolio integration: card + sample artifacts in
 `/Users/ompatel/Documents/Om Portfolio` (`index.html`,
 `veritriage-sample-report.html`, `veritriage-sample-dashboard.html`)
@@ -67,11 +67,15 @@ metadata - into:
    prose; grounding is enforced by stripping citations the prompt did not
    authorize. Generation is off by default and no built-in provider calls an
    external API.
-11. A persistent **Regression Database** (SQLite) giving the platform
+11. An **Automation Engine** (M18): the platform reacts. Immutable, ordered,
+   content-addressed events on a replayable bus; declarative triggers; rules
+   that are structured data; and a closed action vocabulary the workspace
+   dispatches. Automation observes and decides; it never executes.
+12. A persistent **Regression Database** (SQLite) giving the platform
    historical memory: deterministic failure signatures, similarity search,
    "have we seen this before?", failure clustering, and team-level
    analytics via an engineering dashboard.
-12. A **legacy AI review** (`reasoning/ai.py`, M3) that reasons only over the
+13. A **legacy AI review** (`reasoning/ai.py`, M3) that reasons only over the
    bounded, normalized output of the deterministic stages (never raw files) and only explains/annotates -
    it cannot alter the graph, classification, ranking, or knowledge
    conclusions.
@@ -960,6 +964,66 @@ models, MCP-hosted); per-provider grounding reliability aggregated by the
 Learning Engine via `grounding.grounded_ratio`; retiring `reasoning/ai.py` in
 favour of an `ai/` provider.
 
+### Milestone 18 (v1.14.0) - Automation Engine
+
+The milestone that makes VeriTriage event-driven. New top-level package
+`automation/`, a peer of `planning/`, importing **only `models`**.
+
+**The critical evaluation that forced the shape.** Two facts:
+1. **M9 already owns execution.** The proposed action list (run analysis,
+   generate report, summarize changes, ...) maps almost one-to-one onto the
+   orchestrator's ten registered steps, and M9 already ships DAG scheduling,
+   retries, failure isolation, and a trace. A second action registry would sit
+   beside a proven one.
+2. **The layering forbids it anyway.** `orchestrator/` imports `workspace/`, so
+   an `automation/` that executed would sit above the orchestrator and the
+   workspace could not then consume it without a cycle.
+
+**Adopted design:** automation **decides, never executes**. It publishes
+events, evaluates triggers, fires rules, and emits `ActionRequest` objects
+naming capabilities the workspace already has; the workspace dispatches them to
+its own methods. Consequences: no third registry, the non-goals (no
+simulations/CI/webhooks/OS jobs) hold *by construction* because there is no I/O
+in the package at all, and nothing is inverted.
+
+**Why events are immutable:** replay, ordering, and audit are only meaningful if
+the log cannot have changed since it was written. Frozen models, content-derived
+`event_id`, monotonic sequence assigned by the bus.
+
+**The bus** is synchronous (no threads, queues, async, or hidden callbacks),
+ordered, replayable, filterable, and bounded with drops reported. A broken
+subscriber is isolated.
+
+**Scheduling**, which the requirements asked for and the non-goals forbade, is
+resolved honestly: a `schedule_tick` event a *caller* publishes (CI job, cron
+someone else owns, future daemon). The platform never sleeps, spawns, or polls.
+
+Structure: `bus.py` (EventBus), `triggers.py` (@register_trigger + 10 built-in
+conditions), `rules.py` (RuleEngine; rules are a trigger ID plus a tuple of enum
+members, with registration *failing* if the trigger is unknown rather than
+silently never firing), `builtin.py` (6 shipped rules).
+
+Additive edits: `AnalysisReport.automation` (schema `12` -> `13`, appended by
+the workspace after analyze exactly as history is), `investigate(automate=True)`,
+seven WorkspaceServices methods, 7 MCP tools (65 -> 72), CLI `automation`
+command, and a report Automation section.
+
+37 new tests (684 total). Design doc: `docs/AUTOMATION_ENGINE.md` (approved
+before implementation). Crown jewel `test_new_trigger_needs_only_registration`:
+a throwaway coverage-drop trigger plus one rule fires on a caller-published
+event, its requests reach the workspace dispatcher and execute, and it declines
+cleanly when the condition does not hold.
+
+**Real bug found and fixed on the way:** M13's `AgentReliabilityLearner` cited
+supporting regressions only for runs where an agent *led*, so an agent that was
+applicable but never led produced an artifact with `observations > 0` and no
+provenance, violating M13's own "everything links back" law. Latent until
+automation's `REFRESH_LEARNING` action changed which agents became applicable.
+Fixed to cite on applicability.
+
+Deferred to M18.x: a CI adapter publishing events from GitHub Actions/Jenkins;
+Slack and VS Code subscribers; a `due()` evaluation for schedule ticks.
+
 ---
 
 ## 3. Current architecture map
@@ -1003,10 +1067,10 @@ src/veritriage/
                      report sections), search.py (deterministic search). Imports
                      the core; NOTHING in the core imports it (guard-enforced).
   mcp/               M8: tools.py (transport-agnostic tool table over services,
-                     65 tools incl. 5 M9 orchestration, 7 M10 collaboration,
+                     72 tools incl. 5 M9 orchestration, 7 M10 collaboration,
                      4 M11 project, 3 M12 agent, 6 M13 learning, 6 M14 planning,
-                     8 M15 design, 8 M16 conversation, and 6 M17 AI tools;
-                     register_tool extension point), server.py
+                     8 M15 design, 8 M16 conversation, 6 M17 AI, and 7 M18
+                     automation tools; register_tool extension point), server.py
                      (dependency-free MCP stdio JSON-RPC transport). Serve with
                      `veritriage mcp`.
   orchestrator/      M9: steps.py (InvestigationStep + register_step + 10 built-in
@@ -1094,6 +1158,14 @@ src/veritriage/
                      degradation). Owns NO verification intelligence. Providers get a
                      frozen Prompt and nothing else, so read-only holds by
                      construction. conversation/ stays AI-free (guard-enforced).
+  automation/        M18: bus.py (EventBus: ordered, synchronous, replayable, bounded;
+                     a broken subscriber is isolated), triggers.py (@register_trigger
+                     + 10 built-ins; pure functions of an event), rules.py (RuleEngine;
+                     rules are structured data, and registration FAILS on an unknown
+                     trigger rather than silently never firing), builtin.py (6 rules).
+                     Imports ONLY models. Performs no I/O and imports no scheduler,
+                     subprocess, socket, or thread: it decides, the workspace executes.
+                     Nothing below imports it (guard-enforced).
   reports/           HTML report generator (Jinja2, self-contained, light/dark).
   cli/main.py        Typer app: analyze, parsers, knowledge, waveform, context,
                      project, dut, env, flow, explain, investigate, impact, mcp, sessions, run,
@@ -1133,14 +1205,15 @@ input artifacts.
 v3 adds `reasoning` (M3) → v4 adds `history` (M4) → v5 adds `knowledge`
 (M5) → v6 adds `waveform` (M6) → v7 adds `engineering` (M7) → v8 adds
 `project` (M11) → v9 adds `agents` (M12) → v10 adds `learning` (M13) →
-v11 adds `plan` (M14) → v12 adds `design` (M15). Bump on any breaking field change; tests assert the current
+v11 adds `plan` (M14) → v12 adds `design` (M15) →
+v13 adds `automation` (M18). Bump on any breaking field change; tests assert the current
 value (`test_cli.py`).
 
-**Current test count: 647**, across `tests/test_*.py`: parsers, rules,
+**Current test count: 684**, across `tests/test_*.py`: parsers, rules,
 graph, artifact parsers, models, report, CLI, AI boundary, reasoning,
 history, analytics, knowledge, waveform, engineering, workspace/MCP,
 orchestrator, collaboration, project, agents, learning, planning, design,
-conversation, ai. Run with `.venv/bin/python -m pytest -q`
+conversation, ai, automation. Run with `.venv/bin/python -m pytest -q`
 from the repo root.
 
 ---

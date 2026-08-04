@@ -112,11 +112,11 @@ never modifies it (pinned by `tests/test_history.py`). Full design:
 
 ## Report layer
 
-`AnalysisReport` (schema v12) carries the classification, merged run summary,
+`AnalysisReport` (schema v13) carries the classification, merged run summary,
 graph statistics, evidence with node references, the reasoning result, the
 knowledge context, the waveform, engineering, and project contexts, the agent
 assessment, the learning context, the design context, the investigation
-plan, and optional historical context. One analysis writes
+plan, the automation context, and optional historical context. One analysis writes
 three artifacts: `analysis.json`, `evidence_graph.json` (the full
 serialized graph), and `report.html` (self-contained, light/dark aware,
 with Evidence Graph, Verification Knowledge, Agent Findings, What Prior
@@ -163,6 +163,8 @@ reasoning engine; it just sees more nodes.
 | A new kind of question | one `register_handler` class, nothing else (M16) |
 | GPT, Claude, Gemini, local models, voice, Slack, IDE copilots | translators producing `Question` objects and rendering `Answer` objects (M16) |
 | OpenAI, Anthropic, Google, local models, MCP-hosted providers, enterprise gateways | one `LLMProvider` class plus one `register_llm_provider` call (M17) |
+| A new thing to react to | one `register_trigger` class plus one `register_rule` call (M18) |
+| GitHub Actions, Jenkins, GitLab, Slack, VS Code, enterprise schedulers | event producers and action-request consumers; automation is unchanged (M18) |
 | Jira / CI / emulation / formal integrations | adapters around the RegressionRecord vocabulary |
 | Learned similarity embeddings | an `EmbeddingProvider` implementation in `similarity/` |
 | VS Code / Slack / GitHub Action / MCP server | front-ends over `veritriage.pipeline.analyze()` |
@@ -454,6 +456,42 @@ asked is auditable without asking it.
 Generation is off by default (the `null` provider), and no built-in provider
 calls an external API. `conversation/` remains AI-free: it produces the
 structured answer, and `ai/` renders it (`test_conversation_stays_ai_free`).
+
+## Automation Engine (M18): the platform reacts
+
+The layer that makes VeriTriage event-driven. `automation/` publishes the
+moments the platform already detects, evaluates declarative triggers against
+them, fires structured rules, and emits `ActionRequest` objects. Full design:
+[AUTOMATION_ENGINE.md](AUTOMATION_ENGINE.md).
+
+The load-bearing decision, forced by two facts: M9's orchestrator already owns
+execution (its ten registered steps are almost exactly the proposed action
+list), and `orchestrator/` imports `workspace/`, so an automation layer that
+executed would sit above the orchestrator and could not then be consumed by the
+workspace without a cycle. Therefore:
+
+**Automation decides; it never executes.** `automation/` imports only `models`
+(`test_automation_imports_only_models`), performs no I/O and imports no
+scheduler, subprocess, socket, or thread (`test_automation_never_executes_
+anything`), and emits requests that the **workspace** dispatches to methods it
+already has. The action vocabulary is a closed enum, so "actions never execute
+arbitrary code" is structural rather than policy
+(`test_actions_are_a_closed_vocabulary`), and rules carry no executable content
+(`test_rules_carry_no_executable_content`).
+
+Events are immutable, ordered, and content-addressed
+(`test_events_are_immutable`, `test_sequence_is_monotonic`,
+`test_event_ids_are_content_derived`), because replay, ordering, and audit are
+only meaningful if the log cannot have changed since it was written. The bus is
+synchronous with no threads, queues, or hidden callbacks; a broken subscriber is
+isolated (`test_a_broken_subscriber_never_breaks_publish`); and replay
+reproduces identical decisions without rewriting history
+(`test_replay_reproduces_the_same_decisions`).
+
+Automation never changes a conclusion: the classification, hypotheses, and plan
+are identical with it on or off (`test_automation_never_changes_the_report`),
+because `report.automation` is appended by the workspace after `analyze()`
+returns, exactly as historical context is.
 
 ## Collaborative Investigation Platform (M10): portable investigations
 

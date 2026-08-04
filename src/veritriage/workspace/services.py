@@ -27,8 +27,13 @@ if TYPE_CHECKING:
         AgentResult,
         LearningArtifact,
         LearningContext,
+        ActionRequest,
+        ActionResult,
         Answer,
+        AutomationContext,
+        AutomationStatus,
         ConversationSession,
+        Event,
         GeneratedView,
         Prompt,
         ProviderStatus,
@@ -117,6 +122,10 @@ class WorkspaceServices:
         self._learning_db = learning_db or (
             Path(db).parent / "learning.db" if db is not None else None
         )
+        # The event bus is created lazily so a workspace that never automates
+        # never builds one, and so WORKSPACE_OPENED is published exactly once.
+        self._bus = None
+        self._automation_enabled = True
 
     # --- Investigations ----------------------------------------------------
 
@@ -171,6 +180,7 @@ class WorkspaceServices:
         agents: bool = True,
         learn: bool = True,
         plan: bool = True,
+        automate: bool = True,
     ) -> InvestigationSession:
         """Run one full analysis and wrap it into an immutable session.
 
@@ -211,6 +221,11 @@ class WorkspaceServices:
             # Mirrors HistoryEngine.record/augment, and like it, appends only.
             if learn and recalled is not None:
                 self._augment_learning(outcome.report, context.signature)
+        # Automation observes the finished analysis and decides what should
+        # follow. Appended after the fact, exactly as historical context is:
+        # nothing here can change a conclusion.
+        if automate:
+            self._automate(outcome.report)
         return make_session(outcome.report, outcome.graph, now=now)
 
     # --- Project intelligence (M11) ----------------------------------------
@@ -564,6 +579,209 @@ class WorkspaceServices:
         from veritriage.ai import available_renderers
 
         return available_renderers()
+
+    # --- Automation (M18) ---------------------------------------------------
+    #
+    # The workspace is where automation meets execution. The automation package
+    # decides (it imports only models and executes nothing); the workspace
+    # dispatches the resulting requests to methods it already has. That split is
+    # what keeps automation out of the execution business and out of a cycle
+    # with the M9 orchestrator.
+
+    @property
+    def events(self):
+        """The workspace event bus. Ordered, synchronous, replayable."""
+        if self._bus is None:
+            from veritriage.automation import EventBus
+
+            self._bus = EventBus()
+            self._bus.publish(
+                __import__("veritriage.models", fromlist=["EventKind"]).EventKind.WORKSPACE_OPENED,
+                {"session_root": str(self._store.root)},
+                source="workspace",
+            )
+        return self._bus
+
+    def publish_event(self, kind, payload: dict | None = None, subject: str | None = None):
+        """Publish one event onto the workspace bus."""
+        return self.events.publish(kind, payload or {}, subject=subject)
+
+    def recent_events(self, kind=None, limit: int = 50) -> "list[Event]":
+        """The recorded event log, newest last."""
+        return self.events.events(kind=kind, limit=limit)
+
+    def replay_events(self, kind=None, since: int | None = None) -> int:
+        """Re-deliver recorded events to the current subscribers."""
+        return self.events.replay(kind=kind, since=since)
+
+    def automation_status(self) -> "AutomationStatus":
+        """Registered rules and triggers, the action vocabulary, and bus health."""
+        from veritriage.automation import available_rules, available_triggers, enabled_rules
+        from veritriage.models import ActionKind, AutomationStatus
+
+        return AutomationStatus(
+            enabled=self._automation_enabled,
+            registered_rules=sorted(available_rules()),
+            enabled_rules=[r.rule_id for r in enabled_rules()],
+            registered_triggers=sorted(available_triggers()),
+            action_vocabulary=[a.value for a in ActionKind],
+            events_recorded=len(self.events.events()),
+            events_dropped=self.events.dropped,
+            subscribers=self.events.subscriber_count,
+        )
+
+    def automation_rules(self) -> list:
+        """Every registered rule, in firing order."""
+        from veritriage.automation import enabled_rules
+
+        return enabled_rules()
+
+    def _automate(self, report) -> None:
+        """Publish this run's events, evaluate rules, and dispatch what they ask for."""
+        from veritriage.automation import RuleEngine
+        from veritriage.models import AutomationContext, EventKind
+
+        published: list = []
+        published.append(
+            self.publish_event(
+                EventKind.ANALYSIS_COMPLETED,
+                {
+                    "classification": report.classification.category.value,
+                    "confidence": report.classification.confidence,
+                    "signals": ",".join(
+                        s.name for s in (report.reasoning.signals if report.reasoning else [])
+                    ),
+                    "agent_conflicts": len(report.agents.conflicts) if report.agents else 0,
+                    "agents_agree_with_reasoning": (
+                        report.agents.agrees_with_reasoning if report.agents else None
+                    ),
+                    "design_region_size": (
+                        len(report.design.affected_region) if report.design else 0
+                    ),
+                },
+            )
+        )
+        if report.history is not None:
+            published.append(
+                self.publish_event(
+                    EventKind.REGRESSION_DETECTED,
+                    {
+                        "regression_id": report.history.regression_id,
+                        "signature": report.history.signature,
+                        "seen_before": report.history.seen_before,
+                        "times_seen": report.history.times_seen,
+                    },
+                    subject=report.history.regression_id,
+                )
+            )
+        if report.plan is not None:
+            published.append(
+                self.publish_event(
+                    EventKind.PLAN_GENERATED,
+                    {"plan_id": report.plan.plan_id, "steps": len(report.plan.steps)},
+                )
+            )
+
+        engine = RuleEngine()
+        outcomes: list = []
+        requests: list = []
+        for event in published:
+            for outcome in engine.evaluate(event):
+                outcomes.append(outcome)
+                requests.extend(outcome.requests)
+
+        results = self.dispatch_actions(requests, report) if requests else []
+        context = AutomationContext(
+            events=published,
+            outcomes=outcomes,
+            rules_evaluated=len(outcomes),
+            rules_fired=sorted({o.rule_id for o in outcomes if o.matched}),
+            actions_requested=requests,
+            actions_executed=results,
+        )
+        report.automation = None if context.is_empty else context
+
+    def dispatch_actions(
+        self, requests: "list[ActionRequest]", report=None
+    ) -> "list[ActionResult]":
+        """Execute what automation asked for, through methods this class has.
+
+        The action vocabulary is a closed enum, so this dispatcher is the whole
+        execution surface: there is no path from a rule to code the platform
+        does not already own. Anything not safe to do unattended is recorded as
+        skipped, with the reason.
+        """
+        from veritriage.models import ActionKind, ActionResult
+
+        results: list = []
+        for request in requests:
+            rule_id = request.reason.split(":", 1)[0]
+            try:
+                executed, detail, skipped = self._perform(request, report)
+                results.append(
+                    ActionResult(
+                        action=request.action,
+                        requested_by=rule_id,
+                        executed=executed,
+                        detail=detail,
+                        skipped_reason=skipped,
+                    )
+                )
+            except Exception as exc:  # an action failure must not cost the analysis
+                results.append(
+                    ActionResult(
+                        action=request.action,
+                        requested_by=rule_id,
+                        executed=False,
+                        error=f"{type(exc).__name__}: {exc}",
+                    )
+                )
+        return results
+
+    def _perform(self, request, report) -> tuple[bool, str | None, str | None]:
+        """One action. Returns (executed, detail, skipped_reason)."""
+        from veritriage.models import ActionKind
+
+        action = request.action
+        if action is ActionKind.NOTIFY:
+            # Recorded for a client to deliver. The platform calls no webhook.
+            return True, request.reason, None
+        if action is ActionKind.REFRESH_LEARNING:
+            stats = self.learn_from_history()
+            if stats is None:
+                return False, None, "No regression database is configured."
+            return True, f"Learned from {stats.corpus_size} recorded investigation(s).", None
+        if action is ActionKind.GENERATE_PLAN:
+            if report is None or report.plan is None:
+                return False, None, "This run produced no investigation plan."
+            return True, f"Plan {report.plan.plan_id} with {len(report.plan.steps)} step(s).", None
+        if action is ActionKind.SUMMARIZE_CHANGES:
+            if report is None:
+                return False, None, "No report to summarize."
+            return True, report.classification.summary, None
+        if action is ActionKind.REBUILD_DESIGN_GRAPH:
+            graph = self.design_graph()
+            if graph is None:
+                return False, None, "This workspace has no project model."
+            return True, f"Design graph rebuilt: {len(graph.nodes)} element(s).", None
+        if action is ActionKind.GENERATE_REPORT:
+            # Rendering needs an output directory the caller chose, so this is
+            # surfaced rather than guessed at.
+            return False, None, (
+                "Report rendering needs an output directory; run it explicitly with "
+                "'veritriage analyze -o <dir>'."
+            )
+        if action is ActionKind.RUN_ANALYSIS:
+            return False, None, (
+                "Re-running analysis unattended is deliberately not automatic; the "
+                "request is recorded for a caller to act on."
+            )
+        if action is ActionKind.EXPORT_BUNDLE:
+            return False, None, (
+                "Bundle export needs a destination path; the request is recorded for a "
+                "caller to act on."
+            )
+        return False, None, f"No dispatcher for {action.value!r}."
 
     def save(self, session: InvestigationSession) -> Path:
         return self._store.save(session)

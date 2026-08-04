@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 
 from veritriage.models.agents import AgentAssessment
+from veritriage.models.automation import AutomationContext
 from veritriage.models.design import DesignContext
 from veritriage.models.events import Severity, SimulationEvent
 from veritriage.models.evidence import Evidence
@@ -85,7 +86,7 @@ class AnalysisReport(BaseModel):
     Version 2 introduces multi-artifact input and the Evidence Graph.
     """
 
-    schema_version: str = "12"
+    schema_version: str = "13"
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     input_files: list[str] = Field(description="Paths of the analyzed artifacts, as given on the CLI.")
     parser_names: list[str] = Field(description="Parsers used, one per input artifact.")
@@ -163,6 +164,13 @@ class AnalysisReport(BaseModel):
         "reset topology, protocol map, verification topology, dependencies, and risk "
         "hotspots, all derived from the Project Model. Present only when a project "
         "model is supplied; the Evidence Graph is never affected.",
+    )
+    automation: AutomationContext | None = Field(
+        default=None,
+        description="Automation Engine output: the events this run published, which "
+        "rules looked at them, what each decided, and which actions were requested and "
+        "executed. Appended by the workspace after analysis, exactly as historical "
+        "context is; automation never changes a conclusion.",
     )
     ai_summary: str | None = Field(
         default=None, description="Optional AI-generated narrative; grounded in `evidence` only."

@@ -35,7 +35,9 @@ Engine** finally makes all of it navigable: grounded, structured questions
 whose every statement cites an artifact that already exists. **Generative AI**
 sits above all of it as a rendering layer only: providers turn structured
 findings into prose, grounded by enforcement rather than by request, and never
-touch a conclusion.
+touch a conclusion. An **Automation Engine** finally makes the platform react:
+it publishes the events it already detects, evaluates declarative rules against
+them, and requests follow-up work. It observes and decides; it never executes.
 
 ```
 veritriage analyze simulation.log coverage.txt test_metadata.json
@@ -66,6 +68,8 @@ Regression failure
                                memory -> hints for the next investigation)
   -> Locate structurally      (Design Graph: which modules, domains, agents and
                                protocols the failure actually touches)
+  -> React                    (publish events, evaluate rules, request follow-up
+                               work: recurrence, disagreement, unexplained failure)
   -> Plan                     (derive a branching debug plan: ordered steps,
                                decision points, evidence still needed)
   -> Report                   (analysis.json + evidence_graph.json + report.html)
@@ -117,7 +121,10 @@ vocabulary keeps it honest without a language model, and how an LLM later
 becomes a renderer of conversation objects rather than an owner of them, and
 [docs/AI_PROVIDERS.md](docs/AI_PROVIDERS.md) for generative AI: why providers
 render rather than reason, how grounding is enforced instead of requested, and
-why one vendor registry serves both agent narration and every renderer.
+why one vendor registry serves both agent narration and every renderer, and
+[docs/AUTOMATION_ENGINE.md](docs/AUTOMATION_ENGINE.md) for the Automation
+Engine: why automation decides rather than executes, why events are immutable,
+and how CI, schedulers, and chat clients plug in as event producers.
 
 ## Installation
 
@@ -213,8 +220,16 @@ veritriage providers                                       # registered provider
 veritriage render simulation.log -r executive-summary      # grounded prose
 veritriage render simulation.log --show-prompt             # audit the prompt without generating
 
+# Automation: the platform reacts. Events it already detects (a signature
+# recurring, specialists disagreeing, a failure the rules cannot explain) are
+# published onto an ordered, replayable bus; declarative rules evaluate them and
+# request follow-up work from a closed action vocabulary. Automation decides;
+# the workspace executes. No simulations, no CI, no webhooks, no OS jobs.
+veritriage automation                                      # rules, triggers, action vocabulary
+veritriage automation simulation.log                       # what the platform reacted to
+
 # Workspace and MCP: VeriTriage as an external investigation service.
-# `veritriage mcp` serves 65 investigation tools over stdio, so Claude Code,
+# `veritriage mcp` serves 72 investigation tools over stdio, so Claude Code,
 # Cursor, or any MCP host can analyze regressions, walk evidence, search the
 # knowledge base, and query history: the CLI and MCP share the same services.
 veritriage mcp                                             # MCP tool server (stdio)
@@ -322,8 +337,8 @@ since v1.8.0 the `Agent` / `ReasoningProvider` contracts, since v1.9.0 the
 `Learner` / `LearningArtifact` contracts, since v1.10.0 the `StepSource` /
 `DebugPlan` contracts, since v1.11.0 the `StructureExtractor` / `DesignGraph`
 contracts, since v1.12.0 the `Question` / `Answer` / `QuestionHandler`
-contracts, and since v1.13.0 the `LLMProvider` / `Prompt` contracts) is frozen;
-future
+contracts, since v1.13.0 the `LLMProvider` / `Prompt` contracts, and since v1.14.0 the
+`Event` / `Trigger` / `AutomationRule` contracts) is frozen; future
 work is integrations over existing seams: AI providers (Claude, GPT, Gemini,
 local models, MCP-hosted reasoners) as `ReasoningProvider` implementations
 behind the M12 seam -> a VS Code
