@@ -32,7 +32,10 @@ the system: a Design Graph of modules, interfaces, clock and reset domains,
 address regions, and verification components, joined by typed relationships
 and derived deterministically from the project model. A **Conversation
 Engine** finally makes all of it navigable: grounded, structured questions
-whose every statement cites an artifact that already exists.
+whose every statement cites an artifact that already exists. **Generative AI**
+sits above all of it as a rendering layer only: providers turn structured
+findings into prose, grounded by enforcement rather than by request, and never
+touch a conclusion.
 
 ```
 veritriage analyze simulation.log coverage.txt test_metadata.json
@@ -111,7 +114,10 @@ Knowledge, and how structural questions become deterministic traversals, and
 [docs/CONVERSATION_ENGINE.md](docs/CONVERSATION_ENGINE.md) for the Conversation
 Engine: why conversation is navigation rather than reasoning, how a declared
 vocabulary keeps it honest without a language model, and how an LLM later
-becomes a renderer of conversation objects rather than an owner of them.
+becomes a renderer of conversation objects rather than an owner of them, and
+[docs/AI_PROVIDERS.md](docs/AI_PROVIDERS.md) for generative AI: why providers
+render rather than reason, how grounding is enforced instead of requested, and
+why one vendor registry serves both agent narration and every renderer.
 
 ## Installation
 
@@ -199,8 +205,16 @@ veritriage design . --module l2_cache                      # one element and its
 veritriage ask simulation.log -q "why is this a testbench issue?"
 veritriage ask simulation.log -q "why not rtl_bug" -q "show only error" -q "trace"
 
+# Generative AI: providers render, never reason. An LLM receives a frozen prompt
+# built from cited platform objects, never a raw log, waveform, or RTL file.
+# Citations outside the prompt's declared set are stripped from the output.
+# Generation is off by default; no built-in provider calls an external API.
+veritriage providers                                       # registered providers + capabilities
+veritriage render simulation.log -r executive-summary      # grounded prose
+veritriage render simulation.log --show-prompt             # audit the prompt without generating
+
 # Workspace and MCP: VeriTriage as an external investigation service.
-# `veritriage mcp` serves 59 investigation tools over stdio, so Claude Code,
+# `veritriage mcp` serves 65 investigation tools over stdio, so Claude Code,
 # Cursor, or any MCP host can analyze regressions, walk evidence, search the
 # knowledge base, and query history: the CLI and MCP share the same services.
 veritriage mcp                                             # MCP tool server (stdio)
@@ -307,8 +321,9 @@ tool table, the orchestrator step/profile registries, the `.vtb` bundle format,
 since v1.8.0 the `Agent` / `ReasoningProvider` contracts, since v1.9.0 the
 `Learner` / `LearningArtifact` contracts, since v1.10.0 the `StepSource` /
 `DebugPlan` contracts, since v1.11.0 the `StructureExtractor` / `DesignGraph`
-contracts, and since v1.12.0 the `Question` / `Answer` / `QuestionHandler`
-contracts) is frozen; future
+contracts, since v1.12.0 the `Question` / `Answer` / `QuestionHandler`
+contracts, and since v1.13.0 the `LLMProvider` / `Prompt` contracts) is frozen;
+future
 work is integrations over existing seams: AI providers (Claude, GPT, Gemini,
 local models, MCP-hosted reasoners) as `ReasoningProvider` implementations
 behind the M12 seam -> a VS Code

@@ -29,6 +29,9 @@ if TYPE_CHECKING:
         LearningContext,
         Answer,
         ConversationSession,
+        GeneratedView,
+        Prompt,
+        ProviderStatus,
         DebugPlan,
         DesignContext,
         LearningStatistics,
@@ -504,6 +507,63 @@ class WorkspaceServices:
         from veritriage.conversation import vocabulary
 
         return vocabulary()
+
+    # --- Generative AI (M17) ------------------------------------------------
+    #
+    # Provider selection, capability discovery, and grounded rendering. Every
+    # method degrades to the structured object when generation is off, fails,
+    # or is not configured: prose is an additional view, never the source of
+    # truth, so nothing here can cost a conclusion.
+
+    def ai_provider_status(self, provider: str | None = None) -> "list[ProviderStatus]":
+        """Every registered generative provider, its capabilities, and health."""
+        from veritriage.ai import AIService
+
+        return AIService(provider).status()
+
+    def preview_prompt(
+        self,
+        session: InvestigationSession,
+        renderer: str = "engineer-summary",
+    ) -> "Prompt":
+        """Exactly what a provider would be asked, without asking it.
+
+        Prompt construction is a pure function of the structured input, so this
+        is auditable before any generation happens.
+
+        Raises:
+            KeyError: If the renderer is not one of the named views.
+        """
+        from veritriage.ai import AIService, PromptContext
+        from veritriage.ai.renderers import RENDERERS
+
+        if renderer not in RENDERERS:
+            known = ", ".join(sorted(RENDERERS))
+            raise KeyError(f"Unknown renderer {renderer!r}. Available: {known}")
+        return AIService.build_prompt(RENDERERS[renderer], PromptContext(report=session.report))
+
+    def render_investigation(
+        self,
+        session: InvestigationSession,
+        renderer: str = "engineer-summary",
+        provider: str | None = None,
+    ) -> "GeneratedView":
+        """Render one investigation as prose, grounded in its own artifacts."""
+        from veritriage.ai import AIService, render_report
+
+        return render_report(AIService(provider), session.report, renderer)
+
+    def render_answer(self, answer, provider: str | None = None) -> "GeneratedView":
+        """Render a conversation answer as prose, preserving its citations."""
+        from veritriage.ai import AIService, render_answer
+
+        return render_answer(AIService(provider), answer)
+
+    def ai_renderers(self) -> list[str]:
+        """Every named view generation can produce."""
+        from veritriage.ai import available_renderers
+
+        return available_renderers()
 
     def save(self, session: InvestigationSession) -> Path:
         return self._store.save(session)

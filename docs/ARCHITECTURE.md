@@ -162,6 +162,7 @@ reasoning engine; it just sees more nodes.
 | Cross-probing, IDE hierarchy, waveform navigation, semantic search | clients over `DesignQuery`; node IDs are stable and citable (M15) |
 | A new kind of question | one `register_handler` class, nothing else (M16) |
 | GPT, Claude, Gemini, local models, voice, Slack, IDE copilots | translators producing `Question` objects and rendering `Answer` objects (M16) |
+| OpenAI, Anthropic, Google, local models, MCP-hosted providers, enterprise gateways | one `LLMProvider` class plus one `register_llm_provider` call (M17) |
 | Jira / CI / emulation / formal integrations | adapters around the RegressionRecord vocabulary |
 | Learned similarity embeddings | an `EmbeddingProvider` implementation in `similarity/` |
 | VS Code / Slack / GitHub Action / MCP server | front-ends over `veritriage.pipeline.analyze()` |
@@ -417,6 +418,42 @@ the caller, because navigation state is not intelligence and does not belong in
 a store (`test_conversation_persists_nothing`). And `conversation/` never
 imports `workspace/`: the workspace exposes conversation, not the reverse
 (`test_conversation_never_imports_the_workspace`).
+
+## Generative AI (M17): providers render, never reason
+
+The only layer permitted to produce text that was not computed. `ai/` owns
+provider integration and no verification intelligence: a provider receives a
+frozen `Prompt` built from cited platform objects and returns prose. Full
+design: [AI_PROVIDERS.md](AI_PROVIDERS.md).
+
+**One vendor registry, not two.** M12's `agents.ReasoningProvider` is frozen and
+agent-shaped, so it cannot carry summaries or design walkthroughs. Rather than
+build a parallel registry, `ai.adapters.LlmReasoningProvider` satisfies the M12
+interface by delegating to an `LLMProvider`, so registering a vendor once serves
+both agent narration and every renderer
+(`test_reasoning_provider_bridges_to_one_registry`,
+`test_the_m12_contract_is_untouched`).
+
+The load-bearing law, pinned by `tests/test_ai.py`: **providers render, never
+reason.** Generation cannot change a conclusion
+(`test_generation_never_changes_conclusions`); a provider's entire input is a
+frozen prompt with no platform handles
+(`test_providers_receive_no_platform_handles`); `ai/` performs no file I/O
+(`test_ai_never_reads_raw_artifacts`); and a provider that fails, raises, or
+exceeds its prompt budget costs prose and nothing else
+(`test_a_failing_provider_costs_only_prose`).
+
+**Grounding is enforced, not requested.** The prompt declares its citation set;
+any citation outside it is stripped from the response with the omission
+recorded, tested against a deliberately hostile provider
+(`test_invented_citations_are_stripped`). Prompt construction is a pure function
+of the structured input and fully inspectable before generation
+(`test_prompts_are_inspectable_before_generation`), so what a provider will be
+asked is auditable without asking it.
+
+Generation is off by default (the `null` provider), and no built-in provider
+calls an external API. `conversation/` remains AI-free: it produces the
+structured answer, and `ai/` renders it (`test_conversation_stays_ai_free`).
 
 ## Collaborative Investigation Platform (M10): portable investigations
 

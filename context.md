@@ -9,7 +9,7 @@ what's next" record.
 
 Repo: https://github.com/patel-om/veritriage (public, Apache-2.0)
 Local path: `/Users/ompatel/Documents/veritriage`
-Current version: **1.12.0**
+Current version: **1.13.0**
 Portfolio integration: card + sample artifacts in
 `/Users/ompatel/Documents/Om Portfolio` (`index.html`,
 `veritriage-sample-report.html`, `veritriage-sample-dashboard.html`)
@@ -62,12 +62,17 @@ metadata - into:
    Structured questions, answers assembled from artifacts that already exist,
    navigation state that carries between turns, and suggested follow-ups. It
    owns no intelligence: conversation navigates, it never concludes.
-10. A persistent **Regression Database** (SQLite) giving the platform
+10. **Generative AI** (M17): providers render, never reason. An `LLMProvider`
+   receives a frozen `Prompt` built from cited platform objects and returns
+   prose; grounding is enforced by stripping citations the prompt did not
+   authorize. Generation is off by default and no built-in provider calls an
+   external API.
+11. A persistent **Regression Database** (SQLite) giving the platform
    historical memory: deterministic failure signatures, similarity search,
    "have we seen this before?", failure clustering, and team-level
    analytics via an engineering dashboard.
-11. An **optional AI review** that reasons only over the bounded, normalized
-   output of stages 1-10 (never raw files) and only explains/annotates -
+12. A **legacy AI review** (`reasoning/ai.py`, M3) that reasons only over the
+   bounded, normalized output of the deterministic stages (never raw files) and only explains/annotates -
    it cannot alter the graph, classification, ranking, or knowledge
    conclusions.
 
@@ -885,6 +890,76 @@ extractor.
 Deferred to M16.x: an LLM translator producing `Question` objects; a VS Code
 conversation panel; Slack threading over serialized `ConversationSession`s.
 
+### Milestone 17 (v1.13.0) - Generative AI providers
+
+The milestone that introduces LLMs without letting them near a conclusion. New
+top-level package `ai/`, above `conversation/`, below `workspace/`. It owns
+provider integration and no verification intelligence.
+
+**The critical evaluation that simplified the milestone.** The spec asked for
+`ai/LLMProvider` as a fresh abstraction, but M12 had already shipped
+`agents.ReasoningProvider` with NullProvider, DeterministicProvider, a registry,
+and a documented promise that a vendor is "one class plus one registration". A
+parallel registry would have meant two registries, two NullProvider semantics,
+two config paths, and two places to register Anthropic.
+
+But the M12 seam genuinely could not carry M17: it is **agent-shaped**
+(`elaborate(ProviderRequest with agent_id/domain/observations/hypotheses)`),
+with no way to ask for a project digest or a design walkthrough.
+
+**Adopted design:** `ai/` owns ONE `LLMProvider` shaped like a *vendor* (frozen
+prompt in, text out) rather than like a use case. The M12 contract stays frozen
+and untouched, and `ai/adapters.LlmReasoningProvider` satisfies it by delegating
+to an `LLMProvider`. Registering a vendor once therefore serves both agent
+narration and every renderer. Pinned by
+`test_the_m12_contract_is_untouched` (agents/providers.py must not mention
+veritriage.ai).
+
+**The load-bearing decision:** providers render, never reason. A provider's
+entire input is a frozen `Prompt`: no path, no store, no service, no graph, no
+report. "Read-only" therefore holds by construction, because a provider has
+nothing to mutate anything with.
+
+**Grounding is enforced, not requested.** The `Prompt` declares its citation
+set; `grounding.enforce()` scans the response and strips any token outside it,
+recording the omission. Deterministic, and no model is needed to check a model.
+Same pattern as the M12 Coordinator `_verify` and the M16 Conversation `_verify`.
+Tested against a `MockProvider` that deliberately invents citations.
+
+Structure: `provider.py` (LLMProvider Protocol + BaseProvider whose `generate`
+returns failures rather than raising), `registry.py`
+(`@register_llm_provider`; named apart from M12's `register_provider`),
+`providers/` (null, deterministic-echo, mock, reference), `prompt.py`
+(PromptTemplate/PromptContext/PromptBuilder + 7 versioned templates; building is
+pure and the prompt is inspectable), `grounding.py`, `renderers.py` (7 named
+views, an enumerable closed list), `adapters.py` (the M12 bridge), `service.py`
+(AIService: selection, capability discovery, health, degradation).
+
+Additive edits only: five WorkspaceServices methods, 6 MCP tools (59 -> 65), CLI
+`render` and `providers` commands. **No report schema bump**: generated prose is
+a view, never a report field.
+
+**Honest note carried in the docs:** `reasoning/ai.py` (M3 `AIReasoner`) is the
+only file in the repo importing a vendor SDK and hardcoding a model name. The
+non-goal forbade changing reasoning, so it stays and keeps working via
+`analyze --ai`. It is now explicitly the *legacy* path, superseded by `ai/`;
+saying so in AI_PROVIDERS.md rather than leaving it as a trap.
+
+38 new tests (647 total). Design doc: `docs/AI_PROVIDERS.md` (approved before
+implementation). Crown jewel `test_new_provider_needs_only_registration`: a
+throwaway ACME vendor defined in the test renders, has its hallucinated citation
+stripped by the same enforcement as every built-in, appears in discovery
+honestly declaring it is not local, and serves the M12 agent seam through the
+same registry. Caught during implementation: the vendor-SDK guard matched vendor
+names in a docstring listing *future* integrations, fixed by checking imports
+via AST rather than substrings (the same false-positive class as M14's
+`requests.`).
+
+Deferred to M17.x: actual vendor integrations (OpenAI, Anthropic, Google, local
+models, MCP-hosted); per-provider grounding reliability aggregated by the
+Learning Engine via `grounding.grounded_ratio`; retiring `reasoning/ai.py` in
+favour of an `ai/` provider.
+
 ---
 
 ## 3. Current architecture map
@@ -928,10 +1003,10 @@ src/veritriage/
                      report sections), search.py (deterministic search). Imports
                      the core; NOTHING in the core imports it (guard-enforced).
   mcp/               M8: tools.py (transport-agnostic tool table over services,
-                     59 tools incl. 5 M9 orchestration, 7 M10 collaboration,
+                     65 tools incl. 5 M9 orchestration, 7 M10 collaboration,
                      4 M11 project, 3 M12 agent, 6 M13 learning, 6 M14 planning,
-                     8 M15 design, and 8 M16 conversation tools; register_tool
-                     extension point), server.py
+                     8 M15 design, 8 M16 conversation, and 6 M17 AI tools;
+                     register_tool extension point), server.py
                      (dependency-free MCP stdio JSON-RPC transport). Serve with
                      `veritriage mcp`.
   orchestrator/      M9: steps.py (InvestigationStep + register_step + 10 built-in
@@ -1008,6 +1083,17 @@ src/veritriage/
                      Owns NO intelligence: it navigates, never concludes. Never
                      imports workspace/ (the workspace exposes conversation, not the
                      reverse); persists nothing. Guard-enforced.
+  ai/                M17: provider.py (LLMProvider Protocol + BaseProvider), registry.py
+                     (@register_llm_provider; ONE vendor registry for the platform),
+                     providers/ (null=default, deterministic-echo, mock, reference;
+                     none calls an API), prompt.py (versioned templates; building is
+                     pure, prompts are inspectable before generation), grounding.py
+                     (strips citations the prompt did not authorize), renderers.py
+                     (7 named views), adapters.py (LlmReasoningProvider: the frozen
+                     M12 seam delegating here), service.py (selection/health/
+                     degradation). Owns NO verification intelligence. Providers get a
+                     frozen Prompt and nothing else, so read-only holds by
+                     construction. conversation/ stays AI-free (guard-enforced).
   reports/           HTML report generator (Jinja2, self-contained, light/dark).
   cli/main.py        Typer app: analyze, parsers, knowledge, waveform, context,
                      project, dut, env, flow, explain, investigate, impact, mcp, sessions, run,
@@ -1050,11 +1136,11 @@ v3 adds `reasoning` (M3) → v4 adds `history` (M4) → v5 adds `knowledge`
 v11 adds `plan` (M14) → v12 adds `design` (M15). Bump on any breaking field change; tests assert the current
 value (`test_cli.py`).
 
-**Current test count: 609**, across `tests/test_*.py`: parsers, rules,
+**Current test count: 647**, across `tests/test_*.py`: parsers, rules,
 graph, artifact parsers, models, report, CLI, AI boundary, reasoning,
 history, analytics, knowledge, waveform, engineering, workspace/MCP,
 orchestrator, collaboration, project, agents, learning, planning, design,
-conversation. Run with `.venv/bin/python -m pytest -q`
+conversation, ai. Run with `.venv/bin/python -m pytest -q`
 from the repo root.
 
 ---

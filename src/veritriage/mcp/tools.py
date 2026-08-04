@@ -1185,3 +1185,124 @@ def _conversation_vocabulary(services: WorkspaceServices, arguments: dict[str, A
         "phrasings": services.conversation_vocabulary(),
         "intents": [i.value for i in Intent],
     }
+
+
+# --- Generative AI tools (M17) ----------------------------------------------
+
+_RENDER_ARG = _session_arg_with(
+    {
+        "renderer": {
+            "type": "string",
+            "description": "Named view: executive-summary, engineer-summary, "
+            "regression-digest, hypothesis-explanation, plan-explanation, "
+            "design-walkthrough.",
+        },
+        "provider": {
+            "type": "string",
+            "description": "Generative provider to use. Defaults to 'null' (no generation).",
+        },
+    }
+)
+
+
+def _render(services: WorkspaceServices, arguments: dict[str, Any], renderer: str) -> Any:
+    """Render one view, returning the prose and the structured object beside it."""
+    session = _require_session(services, arguments)
+    view = services.render_investigation(
+        session, renderer, arguments.get("provider")
+    )
+    return {
+        "generated": view,
+        "structured": services.summary(session),
+        "grounded": view.grounded,
+    }
+
+
+@register_tool(
+    "summarize_investigation",
+    "Render an investigation as prose in a named style, grounded in its own "
+    "artifacts. Returns the generated text alongside the structured summary, "
+    "so a client that does not trust generation can ignore the prose entirely.",
+    _RENDER_ARG,
+)
+def _summarize_investigation(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    return _render(services, arguments, str(arguments.get("renderer", "engineer-summary")))
+
+
+@register_tool(
+    "explain_investigation_plan",
+    "Render the recommended investigation as prose: what to do first, what each "
+    "step would tell you, and how the branch points work.",
+    _RENDER_ARG,
+)
+def _explain_investigation_plan(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    return _render(services, arguments, "plan-explanation")
+
+
+@register_tool(
+    "explain_design_context",
+    "Render a walkthrough of where this failure sits in the design: the "
+    "affected region, how those elements relate, and what observes them.",
+    _RENDER_ARG,
+)
+def _explain_design_context(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    return _render(services, arguments, "design-walkthrough")
+
+
+@register_tool(
+    "render_conversation_answer",
+    "Ask a question and render the structured answer as prose, preserving every "
+    "citation. The structured answer is returned beside it and is unaffected by "
+    "generation.",
+    _session_arg_with(
+        {
+            "question": {"type": "string", "description": "The question, in plain phrasing."},
+            "provider": {"type": "string", "description": "Generative provider to use."},
+        },
+        required=["question"],
+    ),
+)
+def _render_conversation_answer(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    session = _require_session(services, arguments)
+    answer, conversation = services.ask(session, str(arguments["question"]))
+    view = services.render_answer(answer, arguments.get("provider"))
+    return {"generated": view, "answer": answer, "conversation": conversation}
+
+
+@register_tool(
+    "preview_prompt",
+    "Exactly what a provider would be asked for a named view, without asking "
+    "it. Prompt construction is a pure function of the structured input, so "
+    "this is fully auditable before any generation happens.",
+    _RENDER_ARG,
+)
+def _preview_prompt(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    session = _require_session(services, arguments)
+    prompt = services.preview_prompt(
+        session, str(arguments.get("renderer", "engineer-summary"))
+    )
+    return {
+        "prompt": prompt,
+        "rendered": prompt.render(),
+        "size": prompt.size,
+        "allowed_citations": sorted(prompt.allowed_tokens),
+    }
+
+
+@register_tool(
+    "ai_provider_status",
+    "Every registered generative provider, its declared capabilities, which is "
+    "active, and whether it is healthy. No provider ships that calls an "
+    "external API.",
+    {
+        "type": "object",
+        "properties": {
+            "provider": {"type": "string", "description": "Provider to mark active."}
+        },
+    },
+)
+def _ai_provider_status(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    return {
+        "providers": services.ai_provider_status(arguments.get("provider")),
+        "renderers": services.ai_renderers(),
+    }

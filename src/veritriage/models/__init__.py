@@ -43,6 +43,17 @@ from veritriage.models.planning import (
     StepKind,
     StepValuation,
 )
+from veritriage.models.ai import (
+    Citation,
+    GeneratedView,
+    GenerationRequest,
+    GenerationResponse,
+    Prompt,
+    PromptSection,
+    ProviderCapabilities,
+    ProviderStatus,
+    RenderStyle,
+)
 from veritriage.models.conversation import (
     Answer,
     AnswerSection,
@@ -145,6 +156,15 @@ __all__ = [
     "AgentResult",
     "AnalysisReport",
     "Answer",
+    "Citation",
+    "GeneratedView",
+    "GenerationRequest",
+    "GenerationResponse",
+    "Prompt",
+    "PromptSection",
+    "ProviderCapabilities",
+    "ProviderStatus",
+    "RenderStyle",
     "AnswerSection",
     "ConversationSession",
     "ConversationTurn",

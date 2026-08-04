@@ -307,6 +307,103 @@ def plan(
 
 
 @app.command()
+def render(
+    artifacts: List[Path] = typer.Argument(..., help="Artifacts to investigate, then render."),
+    renderer: str = typer.Option(
+        "engineer-summary", "--renderer", "-r", help="Named view to render."
+    ),
+    provider: str = typer.Option(
+        "deterministic-echo", "--provider", "-p", help="Generative provider."
+    ),
+    show_prompt: bool = typer.Option(
+        False, "--show-prompt", help="Print the exact prompt instead of generating."
+    ),
+    db: Path = typer.Option(DEFAULT_DB, "--db", help="Regression database."),
+) -> None:
+    """Render an investigation as grounded prose."""
+    services = WorkspaceServices(db=db)
+    try:
+        session = services.investigate(artifacts)
+    except (FileNotFoundError, ValueError) as exc:
+        _err.print(f"[red]error:[/red] {escape(str(exc))}")
+        raise typer.Exit(code=2)
+
+    try:
+        if show_prompt:
+            prompt = services.preview_prompt(session, renderer)
+            console.print(
+                Panel(
+                    escape(prompt.render()),
+                    title=f"Prompt · {prompt.template_id} v{prompt.template_version} "
+                    f"({prompt.size} chars, {len(prompt.citations)} citations)",
+                    border_style="blue",
+                )
+            )
+            raise typer.Exit(code=0)
+        view = services.render_investigation(session, renderer, provider)
+    except KeyError as exc:
+        _err.print(f"[red]error:[/red] {escape(str(exc.args[0]))}")
+        raise typer.Exit(code=2)
+
+    if view.is_empty:
+        _err.print(
+            f"[yellow]warning:[/yellow] the {escape(view.provider)!r} provider generated "
+            "nothing. The structured intelligence is unaffected."
+        )
+        for limit in view.limitations:
+            _err.print(f"  [dim]{escape(limit)}[/dim]")
+        raise typer.Exit(code=0)
+
+    body = Table.grid(padding=(0, 1))
+    body.add_column()
+    body.add_row(escape(view.prose))
+    if view.citations:
+        body.add_row("")
+        body.add_row("[bold]Grounded in[/bold]")
+        for citation in view.citations[:8]:
+            body.add_row(f"  [dim]{citation.token}  {escape(citation.label[:60])}[/dim]")
+    if not view.grounded:
+        body.add_row("")
+        body.add_row("[yellow]! this provider invented citations; they were removed[/yellow]")
+    for limit in view.limitations:
+        body.add_row(f"  [yellow]![/yellow] {escape(limit)}")
+    console.print(
+        Panel(
+            body,
+            title=f"{escape(renderer)} · {escape(view.provider)}",
+            border_style="blue" if view.grounded else "yellow",
+        )
+    )
+
+
+@app.command()
+def providers(
+    provider: Optional[str] = typer.Option(None, "--provider", help="Mark one active."),
+) -> None:
+    """List generative providers, their capabilities, and the named views."""
+    services = WorkspaceServices()
+    table = Table(title="Generative providers")
+    for column in ("Provider", "Generates", "Deterministic", "Local", "Notes"):
+        table.add_column(column)
+    for status in services.ai_provider_status(provider):
+        caps = status.capabilities
+        marker = " [green](active)[/green]" if status.active else ""
+        table.add_row(
+            f"{status.name}{marker}",
+            "yes" if caps and caps.generates else "no",
+            "yes" if caps and caps.deterministic else "no",
+            "yes" if caps and caps.local else "no",
+            (caps.notes if caps and caps.notes else status.error or "-"),
+        )
+    console.print(table)
+    console.print(f"[dim]named views: {', '.join(services.ai_renderers())}[/dim]")
+    console.print(
+        "[dim]No built-in provider calls an external API. Generation is off by "
+        "default; the platform is complete without prose.[/dim]"
+    )
+
+
+@app.command()
 def ask(
     artifacts: List[Path] = typer.Argument(..., help="Artifacts to investigate, then ask about."),
     question: List[str] = typer.Option(
