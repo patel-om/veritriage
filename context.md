@@ -9,7 +9,7 @@ what's next" record.
 
 Repo: https://github.com/patel-om/veritriage (public, Apache-2.0)
 Local path: `/Users/ompatel/Documents/veritriage`
-Current version: **1.11.0**
+Current version: **1.12.0**
 Portfolio integration: card + sample artifacts in
 `/Users/ompatel/Documents/Om Portfolio` (`index.html`,
 `veritriage-sample-report.html`, `veritriage-sample-dashboard.html`)
@@ -58,12 +58,16 @@ metadata - into:
    derived deterministically from the Project Model and never from source.
    Structural questions ("which agent owns this interface?", "what crosses this
    clock boundary?") become graph traversals.
-9. A persistent **Regression Database** (SQLite) giving the platform
+9. A **Conversation Engine** (M16): the intelligence becomes navigable.
+   Structured questions, answers assembled from artifacts that already exist,
+   navigation state that carries between turns, and suggested follow-ups. It
+   owns no intelligence: conversation navigates, it never concludes.
+10. A persistent **Regression Database** (SQLite) giving the platform
    historical memory: deterministic failure signatures, similarity search,
    "have we seen this before?", failure clustering, and team-level
    analytics via an engineering dashboard.
-10. An **optional AI review** that reasons only over the bounded, normalized
-   output of stages 1-9 (never raw files) and only explains/annotates -
+11. An **optional AI review** that reasons only over the bounded, normalized
+   output of stages 1-10 (never raw files) and only explains/annotates -
    it cannot alter the graph, classification, ranking, or knowledge
    conclusions.
 
@@ -822,6 +826,65 @@ Deferred to M15.x: the M11.x `rtl`/`uvm` providers that would populate ports,
 FSM references and package imports; cross-probing and IDE clients over
 `DesignQuery`; graph embeddings behind the M4 `EmbeddingProvider` seam.
 
+### Milestone 16 (v1.12.0) - Conversation Engine
+
+The milestone that turns a static report into something an engineer can
+interrogate. New top-level package `conversation/`, above every intelligence
+layer, below `workspace/`. It is the only layer that owns no intelligence at
+all.
+
+**The critical evaluation that reframed the milestone.** The spec read as "add
+a way to ask questions", but VeriTriage *already had* a question-answering
+layer: 51 MCP tools, ~40 WorkspaceServices methods, `workspace/navigation.py`
+(address one object by ID) and `workspace/search.py` (substring match). Each
+answers exactly one question completely, then forgets everything. Four things
+were actually missing: **composition** (follow-ups require restating
+everything), **navigation state** (no current hypothesis/module/filter),
+**cross-layer joins** (evidence -> hypothesis -> agent -> plan step is four
+calls and a manual correlation the report performs, renders, and discards), and
+**a uniform answer contract**. M16 supplies those four and reimplements no
+existing query.
+
+Two further corrections adopted before coding:
+- **Honest parsing.** The non-goal says "do not create natural language" while
+  the examples are English sentences. Resolved by making the canonical question
+  a structured object and the parser a *declared, finite vocabulary* matcher
+  (keyword/regex, in the spirit of the M5 clause matcher). Out-of-vocabulary
+  input returns an honest miss listing what *can* be asked, never a nearest
+  guess. This is exactly what makes a future LLM a **translator** producing
+  `Question` objects, never an owner of answers.
+- **No new store.** `ConversationSession` is serializable and handed back to
+  the caller. Navigation state is not intelligence; a sixth SQLite file for
+  "which hypothesis am I looking at" would be storage for nothing.
+
+**The load-bearing decision:** conversation navigates, it never concludes.
+Enforced rather than trusted: `ConversationEngine._verify` strips any citation
+that does not resolve to a real artifact and records the omission, so a handler
+that invents a node ID cannot reach a client.
+
+Structure: `context.py` (`ConversationContext` + the *only* sanctioned reference
+builders, each returning None when the artifact is absent), `registry.py`
+(`@register_handler`, one per intent), `parse.py` (declared vocabulary),
+`handlers/` (explain/why/why_not, show_evidence/filter,
+navigate/summarize/help, trace/compare), `engine.py`.
+
+Ten intents. `Answer.followups` is what makes navigation possible without
+prose: each answer names the questions it has made available.
+
+Additive edits only: two WorkspaceServices methods, 8 MCP tools (51 -> 59), a
+CLI `ask` command. **No report schema bump**: conversation is live interaction
+over a finished report, not a new report field, which is itself the clearest
+statement of what this layer is.
+
+34 new tests (609 total). Design doc: `docs/CONVERSATION_ENGINE.md` (approved
+before implementation). Crown jewel `test_new_intent_needs_only_registration`.
+Caught during implementation: `summarize design` lost its target because no
+pattern captured the noun after an intent verb, fixed by adding a verb-plus-noun
+extractor.
+
+Deferred to M16.x: an LLM translator producing `Question` objects; a VS Code
+conversation panel; Slack threading over serialized `ConversationSession`s.
+
 ---
 
 ## 3. Current architecture map
@@ -865,9 +928,10 @@ src/veritriage/
                      report sections), search.py (deterministic search). Imports
                      the core; NOTHING in the core imports it (guard-enforced).
   mcp/               M8: tools.py (transport-agnostic tool table over services,
-                     51 tools incl. 5 M9 orchestration, 7 M10 collaboration,
+                     59 tools incl. 5 M9 orchestration, 7 M10 collaboration,
                      4 M11 project, 3 M12 agent, 6 M13 learning, 6 M14 planning,
-                     and 8 M15 design tools; register_tool extension point), server.py
+                     8 M15 design, and 8 M16 conversation tools; register_tool
+                     extension point), server.py
                      (dependency-free MCP stdio JSON-RPC transport). Serve with
                      `veritriage mcp`.
   orchestrator/      M9: steps.py (InvestigationStep + register_step + 10 built-in
@@ -937,6 +1001,13 @@ src/veritriage/
                      happened, knowledge is what is generally true, design is what the
                      system IS. Derived from the Project Model, NEVER from source
                      (guard-enforced); imports no provider; nothing below imports it.
+  conversation/      M16: context.py (ConversationContext + the ONLY sanctioned
+                     reference builders), registry.py (@register_handler, one per
+                     intent), parse.py (declared vocabulary; honest miss, never a
+                     guess), handlers/ (10 intents), engine.py (ask/verify/record).
+                     Owns NO intelligence: it navigates, never concludes. Never
+                     imports workspace/ (the workspace exposes conversation, not the
+                     reverse); persists nothing. Guard-enforced.
   reports/           HTML report generator (Jinja2, self-contained, light/dark).
   cli/main.py        Typer app: analyze, parsers, knowledge, waveform, context,
                      project, dut, env, flow, explain, investigate, impact, mcp, sessions, run,
@@ -979,10 +1050,11 @@ v3 adds `reasoning` (M3) → v4 adds `history` (M4) → v5 adds `knowledge`
 v11 adds `plan` (M14) → v12 adds `design` (M15). Bump on any breaking field change; tests assert the current
 value (`test_cli.py`).
 
-**Current test count: 575**, across `tests/test_*.py`: parsers, rules,
+**Current test count: 609**, across `tests/test_*.py`: parsers, rules,
 graph, artifact parsers, models, report, CLI, AI boundary, reasoning,
 history, analytics, knowledge, waveform, engineering, workspace/MCP,
-orchestrator, collaboration, project, agents, learning, planning, design. Run with `.venv/bin/python -m pytest -q`
+orchestrator, collaboration, project, agents, learning, planning, design,
+conversation. Run with `.venv/bin/python -m pytest -q`
 from the repo root.
 
 ---

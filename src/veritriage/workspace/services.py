@@ -27,6 +27,8 @@ if TYPE_CHECKING:
         AgentResult,
         LearningArtifact,
         LearningContext,
+        Answer,
+        ConversationSession,
         DebugPlan,
         DesignContext,
         LearningStatistics,
@@ -461,6 +463,47 @@ class WorkspaceServices:
         if context is None:
             return []
         return [n.model_dump(mode="json") for n in context.affected_region]
+
+    # --- Conversation (M16) -------------------------------------------------
+    #
+    # Conversation navigates a finished investigation; it owns no intelligence
+    # and stores nothing. A ConversationSession is returned to the caller to
+    # keep however it likes: navigation state is not intelligence, and it does
+    # not belong in a database.
+
+    def start_conversation(
+        self, session: InvestigationSession, conversation: "ConversationSession | None" = None
+    ):
+        """Open a navigable conversation over a finished investigation."""
+        from veritriage.conversation import ConversationContext, ConversationEngine
+
+        return ConversationEngine(
+            ConversationContext(
+                session_id=session.session_id, report=session.report, graph=session.graph
+            ),
+            session=conversation,
+        )
+
+    def ask(
+        self,
+        session: InvestigationSession,
+        question,
+        conversation: "ConversationSession | None" = None,
+    ) -> tuple["Answer", "ConversationSession"]:
+        """Ask one question; returns the answer and the updated conversation.
+
+        Stateless from the platform's point of view: pass the conversation back
+        in to continue it, or drop it to start fresh.
+        """
+        engine = self.start_conversation(session, conversation)
+        answer = engine.ask(question)
+        return answer, engine.session
+
+    def conversation_vocabulary(self) -> list[str]:
+        """The phrasings the deterministic parser understands."""
+        from veritriage.conversation import vocabulary
+
+        return vocabulary()
 
     def save(self, session: InvestigationSession) -> Path:
         return self._store.save(session)
