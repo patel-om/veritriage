@@ -1306,3 +1306,155 @@ def _ai_provider_status(services: WorkspaceServices, arguments: dict[str, Any]) 
         "providers": services.ai_provider_status(arguments.get("provider")),
         "renderers": services.ai_renderers(),
     }
+
+
+# --- Automation tools (M18) -------------------------------------------------
+
+
+@register_tool(
+    "recent_events",
+    "The workspace event log: what the platform observed, in order. Events are "
+    "immutable and content-addressed, so this is an audit trail rather than a "
+    "summary.",
+    {
+        "type": "object",
+        "properties": {
+            "kind": {"type": "string", "description": "Filter to one event kind."},
+            "limit": {"type": "integer", "description": "Maximum events (default 50)."},
+        },
+    },
+)
+def _recent_events(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    from veritriage.models import EventKind
+
+    kind = arguments.get("kind")
+    return services.recent_events(
+        EventKind(str(kind)) if kind else None, int(arguments.get("limit", 50))
+    )
+
+
+@register_tool(
+    "automation_status",
+    "The state of the automation layer: registered rules and triggers, the "
+    "closed action vocabulary, and event-bus health.",
+    {"type": "object", "properties": {}},
+)
+def _automation_status(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    return services.automation_status()
+
+
+@register_tool(
+    "automation_rules",
+    "Every registered automation rule in firing order: which trigger it "
+    "watches and which actions it requests. Rules are structured data, never "
+    "code.",
+    {"type": "object", "properties": {}},
+)
+def _automation_rules(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    return services.automation_rules()
+
+
+@register_tool(
+    "publish_event",
+    "Publish an event onto the workspace bus, for a CI job, scheduler, or "
+    "external system to drive automation. Rules evaluate it immediately and "
+    "the outcomes are returned.",
+    {
+        "type": "object",
+        "properties": {
+            "kind": {
+                "type": "string",
+                "description": "Event kind, e.g. schedule_tick, evidence_imported.",
+            },
+            "payload": {"type": "object", "description": "Plain facts about the event."},
+            "subject": {"type": "string", "description": "What the event is about."},
+        },
+        "required": ["kind"],
+    },
+)
+def _publish_event(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    from veritriage.automation import RuleEngine
+    from veritriage.models import EventKind
+
+    payload = arguments.get("payload") or {}
+    event = services.publish_event(
+        EventKind(str(arguments["kind"])),
+        {k: str(v) for k, v in payload.items()},
+        subject=arguments.get("subject"),
+    )
+    outcomes = RuleEngine().evaluate(event)
+    return {
+        "event": event,
+        "outcomes": outcomes,
+        "requests": [r for o in outcomes for r in o.requests],
+    }
+
+
+@register_tool(
+    "replay_events",
+    "Re-deliver recorded events to the current subscribers. Nothing is "
+    "re-recorded and no sequence is reassigned: replay observes history, it "
+    "does not rewrite it.",
+    {
+        "type": "object",
+        "properties": {
+            "kind": {"type": "string", "description": "Filter to one event kind."},
+            "since": {"type": "integer", "description": "Replay from this sequence onward."},
+        },
+    },
+)
+def _replay_events(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    from veritriage.models import EventKind
+
+    kind = arguments.get("kind")
+    since = arguments.get("since")
+    count = services.replay_events(
+        EventKind(str(kind)) if kind else None, int(since) if since is not None else None
+    )
+    return {"replayed": count}
+
+
+@register_tool(
+    "system_activity",
+    "What automation did around an investigation: the events it published, the "
+    "rule verdicts it recorded, and which requested actions ran or were "
+    "declined.",
+    _SESSION_ARG,
+)
+def _system_activity(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    session = _require_session(services, arguments)
+    context = session.report.automation
+    if context is None:
+        raise KeyError(f"Session {session.session_id!r} carries no automation context")
+    return context
+
+
+@register_tool(
+    "automation_metrics",
+    "Aggregate automation activity across the recorded event log: events by "
+    "kind, which rules fire most, and bus health.",
+    {"type": "object", "properties": {}},
+)
+def _automation_metrics(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    from veritriage.automation import RuleEngine
+
+    events = services.recent_events(limit=500)
+    by_kind: dict[str, int] = {}
+    for event in events:
+        by_kind[event.kind.value] = by_kind.get(event.kind.value, 0) + 1
+
+    engine = RuleEngine()
+    fired: dict[str, int] = {}
+    for event in events:
+        for outcome in engine.evaluate(event):
+            if outcome.matched:
+                fired[outcome.rule_id] = fired.get(outcome.rule_id, 0) + 1
+
+    status = services.automation_status()
+    return {
+        "events_by_kind": dict(sorted(by_kind.items())),
+        "rules_fired": dict(sorted(fired.items(), key=lambda p: (-p[1], p[0]))),
+        "events_recorded": status.events_recorded,
+        "events_dropped": status.events_dropped,
+        "subscribers": status.subscribers,
+    }

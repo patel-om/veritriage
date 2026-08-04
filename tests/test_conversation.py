@@ -447,7 +447,7 @@ def test_conversation_vocabulary_is_plain_data():
 
 def test_no_report_schema_change_for_conversation(outcome):
     """Conversation is live interaction, not a new report field."""
-    assert outcome.report.schema_version == "12"
+    assert outcome.report.schema_version == "13"
     assert not hasattr(outcome.report, "conversation")
 
 

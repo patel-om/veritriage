@@ -490,6 +490,72 @@
   </section>
   {% endif %}
 
+  {% if report.automation and not report.automation.is_empty %}
+  {% set auto = report.automation %}
+  <section>
+    <h2>Automation</h2>
+    <p class="lead">
+      {{ auto.events | length }} event{{ "s" if auto.events | length != 1 }} published,
+      {{ auto.rules_evaluated }} rule verdict{{ "s" if auto.rules_evaluated != 1 }} recorded,
+      {{ auto.rules_fired | length }} rule{{ "s" if auto.rules_fired | length != 1 }} fired.
+      Automation observes and decides; it never changes a conclusion.
+    </p>
+    {% if auto.events %}
+    <div class="card">
+      <h3>Timeline</h3>
+      <ul class="steps">
+        {% for event in auto.events %}
+        <li>{{ event.summary() }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% if auto.outcomes %}
+    <div class="card">
+      <h3>Triggered Rules</h3>
+      <div class="graph-scroll">
+      <table>
+        <thead><tr><th>Rule</th><th>Event</th><th>Fired</th><th>Why</th></tr></thead>
+        <tbody>
+        {% for outcome in auto.outcomes %}
+          <tr>
+            <td>{{ outcome.rule_id }}</td>
+            <td>{{ outcome.event_kind.display_name }}</td>
+            <td>{% if outcome.matched %}<span class="dot good"></span>yes{% else %}<span class="dot muted"></span>no{% endif %}</td>
+            <td>{{ outcome.reason }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+    {% endif %}
+    {% if auto.actions_executed %}
+    <div class="card">
+      <h3>Rule Outcomes</h3>
+      <div class="graph-scroll">
+      <table>
+        <thead><tr><th>Action</th><th>Requested by</th><th>Result</th></tr></thead>
+        <tbody>
+        {% for result in auto.actions_executed %}
+          <tr>
+            <td>{{ result.action.display_name }}</td>
+            <td>{{ result.requested_by }}</td>
+            <td>
+              {% if result.executed %}{{ result.detail or "done" }}
+              {% elif result.error %}<span class="dot critical"></span>{{ result.error }}
+              {% else %}<span class="dot muted"></span>{{ result.skipped_reason }}{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
   {% if report.design and not report.design.is_empty %}
   {% set dsg = report.design %}
   <section>

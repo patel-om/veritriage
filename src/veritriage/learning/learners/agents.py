@@ -42,12 +42,17 @@ class AgentReliabilityLearner(Learner):
                 if not result.applicable:
                     continue
                 applicable[result.agent_id] = applicable.get(result.agent_id, 0) + 1
+                # Cite on applicability, not on leading: the artifact reports how
+                # often the specialist was applicable, so those are the runs it
+                # must link back to. Citing only leading runs left an artifact
+                # with observations and no provenance whenever a specialist was
+                # consulted but never led.
+                cited.setdefault(result.agent_id, []).append(record)
                 if result.abstained or result.leading_category is None:
                     continue
                 if result.leading_category != assessment.top_category:
                     continue
                 led[result.agent_id] = led.get(result.agent_id, 0) + 1
-                cited.setdefault(result.agent_id, []).append(record)
                 if verdict is None:
                     continue
                 judged[result.agent_id] = judged.get(result.agent_id, 0) + 1

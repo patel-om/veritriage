@@ -377,6 +377,85 @@ def render(
 
 
 @app.command()
+def automation(
+    artifacts: List[Path] = typer.Argument(
+        None, help="Optional artifacts to analyze first, so events have something to react to."
+    ),
+    db: Path = typer.Option(DEFAULT_DB, "--db", help="Regression database."),
+) -> None:
+    """Show automation rules, triggers, and what the platform reacted to."""
+    services = WorkspaceServices(db=db)
+
+    if artifacts:
+        try:
+            session = services.investigate(list(artifacts), record_history=True)
+        except (FileNotFoundError, ValueError) as exc:
+            _err.print(f"[red]error:[/red] {escape(str(exc))}")
+            raise typer.Exit(code=2)
+        context = session.report.automation
+        if context is not None:
+            events = Table(title="Events published")
+            events.add_column("#")
+            events.add_column("Event")
+            events.add_column("Detail")
+            for event in context.events:
+                events.add_row(
+                    str(event.sequence),
+                    event.kind.display_name,
+                    ", ".join(f"{k}={v}" for k, v in sorted(event.payload.items()) if v not in (None, "")),
+                )
+            console.print(events)
+
+            outcomes = Table(title="Rule verdicts")
+            for column in ("Rule", "Fired", "Why"):
+                outcomes.add_column(column)
+            for outcome in context.outcomes:
+                outcomes.add_row(
+                    outcome.rule_id,
+                    "[green]yes[/green]" if outcome.matched else "[dim]no[/dim]",
+                    outcome.reason,
+                )
+            console.print(outcomes)
+
+            if context.actions_executed:
+                actions = Table(title="Actions")
+                for column in ("Action", "Requested by", "Result"):
+                    actions.add_column(column)
+                for result in context.actions_executed:
+                    outcome_text = (
+                        result.detail or "done"
+                        if result.executed
+                        else f"[dim]{result.skipped_reason or result.error}[/dim]"
+                    )
+                    actions.add_row(
+                        result.action.display_name, result.requested_by, outcome_text
+                    )
+                console.print(actions)
+
+    status = services.automation_status()
+    rules = Table(title="Registered rules")
+    for column in ("Rule", "When", "Then", "Priority"):
+        rules.add_column(column)
+    for rule in services.automation_rules():
+        rules.add_row(
+            rule.rule_id,
+            rule.when,
+            ", ".join(a.value for a in rule.then),
+            str(rule.priority),
+        )
+    console.print(rules)
+    console.print(
+        f"[dim]{len(status.registered_triggers)} triggers, "
+        f"{len(status.action_vocabulary)} actions in the closed vocabulary, "
+        f"{status.events_recorded} events recorded.[/dim]"
+    )
+    console.print(
+        "[dim]Automation observes and decides. It runs no simulation, calls no "
+        "webhook, and schedules no OS job.[/dim]"
+    )
+
+
+@app.command()
 def providers(
     provider: Optional[str] = typer.Option(None, "--provider", help="Mark one active."),
 ) -> None:
