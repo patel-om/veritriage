@@ -9,7 +9,7 @@ what's next" record.
 
 Repo: https://github.com/patel-om/veritriage (public, Apache-2.0)
 Local path: `/Users/ompatel/Documents/veritriage`
-Current version: **1.10.0**
+Current version: **1.11.0**
 Portfolio integration: card + sample artifacts in
 `/Users/ompatel/Documents/Om Portfolio` (`index.html`,
 `veritriage-sample-report.html`, `veritriage-sample-dashboard.html`)
@@ -52,12 +52,18 @@ metadata - into:
    the conclusions: steps ordered by value against effort, decision points,
    the evidence still missing and why it matters, completion conditions, and
    risks. It contributes structure, never content.
-8. A persistent **Regression Database** (SQLite) giving the platform
+8. A **Design Intelligence Engine** (M15): the third graph. A **Design Graph**
+   of modules, IP blocks, interfaces, clock/reset domains, address regions,
+   register blocks, UVM components and VIPs, joined by 14 typed relationships,
+   derived deterministically from the Project Model and never from source.
+   Structural questions ("which agent owns this interface?", "what crosses this
+   clock boundary?") become graph traversals.
+9. A persistent **Regression Database** (SQLite) giving the platform
    historical memory: deterministic failure signatures, similarity search,
    "have we seen this before?", failure clustering, and team-level
    analytics via an engineering dashboard.
-9. An **optional AI review** that reasons only over the bounded, normalized
-   output of stages 1-8 (never raw files) and only explains/annotates -
+10. An **optional AI review** that reasons only over the bounded, normalized
+   output of stages 1-9 (never raw files) and only explains/annotates -
    it cannot alter the graph, classification, ranking, or knowledge
    conclusions.
 
@@ -749,6 +755,73 @@ Deferred to M14.x: interactive planning (observations fed back into ASK
 conditions); a `plan` orchestration step; plan diffing across runs; VS Code
 plan rendering.
 
+### Milestone 15 (v1.11.0) - Design Intelligence
+
+The milestone that moves VeriTriage from understanding failures to
+understanding systems. New top-level package `design/`, above `project/`,
+below the pipeline.
+
+**The critical evaluation that changed the milestone's shape.** The spec asked
+for a `design/` package owning `Module`, `Interface`, `ClockDomain`, `Port`,
+`AddressMap`, `UVMAgent`, `Scoreboard` and its own RTL/UVM extractors. But M11's
+`ProjectModel` **already carries roughly eighteen of the twenty-eight proposed
+artifacts**: modules with parents, IP blocks with members, interfaces with
+protocols and signals, clock/reset domains with roots, an address map with
+target IPs, UVM components with parents and interfaces, VIPs, RAL, coverage,
+assertions, sequences, config objects. Building a second model would have
+created two sources of truth for the same facts, and putting extractors in
+`design/` would have broken M11's most important law (only a `ProjectProvider`
+reads source).
+
+**What is actually missing is not nouns but verbs.** Every relationship in the
+Project Model exists as an unresolved string nothing walks: `DesignModule.parent`,
+`ClockDomain.roots`, `UvmComponent.interface`, `AddressRegion.target_ip`,
+`Vip.protocol_id`. The visible symptom was `resolve_scope()` in
+`project/inference.py` bridging them by splitting strings on dots and
+intersecting sets.
+
+**Adopted design:** `design/` owns the *graph layer over* the Project Model, not
+a rival model. This is the M1 to M2 transition repeated (parsers produced flat
+ParseResults; M2 added the Evidence Graph over them without re-parsing).
+Consequence: **zero changes to `project/`** were needed, which is the strongest
+evidence the shape was right.
+
+**The load-bearing law:** the Design Graph is *derived, never extracted*.
+`design/` performs no source reading and imports no provider. If a structural
+fact is missing, the fix is a `ProjectProvider`, not a new parser. RTL parsing
+stays deferred to M11.x where it already belongs.
+
+Structure: `model.py` (DesignNode/DesignEdge/DesignGraph; content-hashed IDs
+like the Evidence Graph; node *merging* so extractors stay independent while
+describing the same module), `registry.py` (`@register_extractor`, order-ranked),
+`extractors/` (hierarchy, clock-reset, interfaces, address-map, verification,
+verification-assets), `builder.py`, `query.py` (`DesignQuery`: affected_region,
+owner_of, observers_of, clock_domains_of, crossings, hierarchy, dependencies,
+protocol_map, unverified_modules), `inference.py` (report view).
+
+14 relations: instantiates, owns, connects, drives, monitors, predicts,
+implements, depends_on, clocked_by, reset_by, communicates_with, covers,
+asserts, configured_by. Every edge carries a `rationale` naming the field it
+came from, and edges that follow hierarchy rather than a declaration are marked
+`inferred` (inference is allowed; hiding it is not).
+
+Additive edits only: `AnalysisReport.design` (schema `11` -> `12`),
+`AgentContext.design` (plain data; `agents/` never imports `design/`), five
+WorkspaceServices methods, 8 MCP tools (43 -> 51), CLI `design` command, and a
+report Design Intelligence section. No new ArtifactType, no Evidence Graph
+change, no project/ change.
+
+41 new tests (575 total). Design doc: `docs/DESIGN_INTELLIGENCE.md` (approved
+before implementation). Crown jewel `test_new_extractor_needs_only_registration`:
+a throwaway power-domain extractor defined in the test reaches the graph, the
+queries, and the report with zero core changes. Caught during implementation:
+`dependents_of` missed the address region because the fixture names an IP and
+its top module identically, fixed by resolving across all same-named nodes.
+
+Deferred to M15.x: the M11.x `rtl`/`uvm` providers that would populate ports,
+FSM references and package imports; cross-probing and IDE clients over
+`DesignQuery`; graph embeddings behind the M4 `EmbeddingProvider` seam.
+
 ---
 
 ## 3. Current architecture map
@@ -792,9 +865,9 @@ src/veritriage/
                      report sections), search.py (deterministic search). Imports
                      the core; NOTHING in the core imports it (guard-enforced).
   mcp/               M8: tools.py (transport-agnostic tool table over services,
-                     43 tools incl. 5 M9 orchestration, 7 M10 collaboration,
-                     4 M11 project, 3 M12 agent, 6 M13 learning, and 6 M14
-                     planning tools; register_tool extension point), server.py
+                     51 tools incl. 5 M9 orchestration, 7 M10 collaboration,
+                     4 M11 project, 3 M12 agent, 6 M13 learning, 6 M14 planning,
+                     and 8 M15 design tools; register_tool extension point), server.py
                      (dependency-free MCP stdio JSON-RPC transport). Serve with
                      `veritriage mcp`.
   orchestrator/      M9: steps.py (InvestigationStep + register_step + 10 built-in
@@ -856,6 +929,14 @@ src/veritriage/
                      executes and never invents advice: every step names the artifact
                      it restates. Vocabulary deliberately distinct from M9
                      orchestration (DebugPlan vs InvestigationPlan).
+  design/            M15: model.py (DesignNode/DesignEdge/DesignGraph, content-hashed
+                     IDs, node merging so extractors stay independent), registry.py
+                     (@register_extractor, order-ranked), extractors/ (6 built-in),
+                     builder.py, query.py (DesignQuery: the structural questions),
+                     inference.py (report view). THE THIRD GRAPH: evidence is what
+                     happened, knowledge is what is generally true, design is what the
+                     system IS. Derived from the Project Model, NEVER from source
+                     (guard-enforced); imports no provider; nothing below imports it.
   reports/           HTML report generator (Jinja2, self-contained, light/dark).
   cli/main.py        Typer app: analyze, parsers, knowledge, waveform, context,
                      project, dut, env, flow, explain, investigate, impact, mcp, sessions, run,
@@ -895,13 +976,13 @@ input artifacts.
 v3 adds `reasoning` (M3) → v4 adds `history` (M4) → v5 adds `knowledge`
 (M5) → v6 adds `waveform` (M6) → v7 adds `engineering` (M7) → v8 adds
 `project` (M11) → v9 adds `agents` (M12) → v10 adds `learning` (M13) →
-v11 adds `plan` (M14). Bump on any breaking field change; tests assert the current
+v11 adds `plan` (M14) → v12 adds `design` (M15). Bump on any breaking field change; tests assert the current
 value (`test_cli.py`).
 
-**Current test count: 534**, across `tests/test_*.py`: parsers, rules,
+**Current test count: 575**, across `tests/test_*.py`: parsers, rules,
 graph, artifact parsers, models, report, CLI, AI boundary, reasoning,
 history, analytics, knowledge, waveform, engineering, workspace/MCP,
-orchestrator, collaboration, project, agents, learning, planning. Run with `.venv/bin/python -m pytest -q`
+orchestrator, collaboration, project, agents, learning, planning, design. Run with `.venv/bin/python -m pytest -q`
 from the repo root.
 
 ---

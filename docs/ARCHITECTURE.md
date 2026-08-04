@@ -112,16 +112,16 @@ never modifies it (pinned by `tests/test_history.py`). Full design:
 
 ## Report layer
 
-`AnalysisReport` (schema v11) carries the classification, merged run summary,
+`AnalysisReport` (schema v12) carries the classification, merged run summary,
 graph statistics, evidence with node references, the reasoning result, the
 knowledge context, the waveform, engineering, and project contexts, the agent
-assessment, the learning context, the investigation plan, and optional
-historical context. One analysis writes
+assessment, the learning context, the design context, the investigation
+plan, and optional historical context. One analysis writes
 three artifacts: `analysis.json`, `evidence_graph.json` (the full
 serialized graph), and `report.html` (self-contained, light/dark aware,
 with Evidence Graph, Verification Knowledge, Agent Findings, What Prior
-Investigations Suggest, Recommended Investigation, and Historical Context
-sections). The CLI renders the same models to the terminal with Rich.
+Investigations Suggest, Design Intelligence, Recommended Investigation, and
+Historical Context sections). The CLI renders the same models to the terminal with Rich.
 
 ## AI layer
 
@@ -158,6 +158,8 @@ reasoning engine; it just sees more nodes.
 | Learned embeddings, semantic retrieval, graph similarity | an `EmbeddingProvider` or a `Learner`; the Learning Engine contracts are unchanged (M13) |
 | A new kind of debug step (emulation, lab bring-up, silicon) | one `register_source` class, nothing else (M14) |
 | Interactive planning, live debugging, CI investigation, tool execution | consumers of `DebugPlan`; planning stays advisory (M14) |
+| A new structural facet (power domains, ports, FSMs, packages) | one `register_extractor` class, nothing else (M15) |
+| Cross-probing, IDE hierarchy, waveform navigation, semantic search | clients over `DesignQuery`; node IDs are stable and citable (M15) |
 | Jira / CI / emulation / formal integrations | adapters around the RegressionRecord vocabulary |
 | Learned similarity embeddings | an `EmbeddingProvider` implementation in `similarity/` |
 | VS Code / Slack / GitHub Action / MCP server | front-ends over `veritriage.pipeline.analyze()` |
@@ -350,6 +352,38 @@ graph, while `ASK` conditions are rendered as open questions and left standing
 The vocabulary is deliberately separate from M9 orchestration: an
 `InvestigationPlan` is what the platform runs, a `DebugPlan` is what the
 engineer does (`test_planning_does_not_collide_with_m9_orchestration`).
+
+## Design Intelligence (M15): the platform understands the system
+
+The third graph in the platform. The Evidence Graph says what happened in one
+run; the Knowledge Graph says what is generally true of a protocol; the
+**Design Graph** (`veritriage/design/`) says what this system *is*: modules,
+IP blocks, interfaces, clock and reset domains, address regions, register
+blocks, UVM components, VIPs, coverage and assertion groups, joined by fourteen
+typed relationships. Full design:
+[DESIGN_INTELLIGENCE.md](DESIGN_INTELLIGENCE.md).
+
+The load-bearing law, pinned by `tests/test_design.py`: **the Design Graph is
+derived, never extracted.** `design/` performs no source reading at all
+(`test_design_never_reads_source`) and imports no provider
+(`test_design_never_imports_a_provider`). It normalizes the M11 Project Model
+into a queryable graph, resolving every dangling string (`DesignModule.parent`,
+`ClockDomain.roots`, `UvmComponent.interface`, `AddressRegion.target_ip`) into a
+real edge. If a structural fact is missing, the fix is a `ProjectProvider`, not
+a new parser, and M11's law that only a provider reads source stays exactly
+where it was (`test_project_package_unchanged`).
+
+This is the M1 to M2 transition repeated: M1's parsers produced flat
+`ParseResult`s and M2 added the Evidence Graph as the relational layer over
+them without re-parsing. M15 does the same for project structure.
+
+Every edge names the project-model field it came from
+(`test_every_edge_carries_a_rationale`), and the few edges that follow
+hierarchy rather than a declaration are marked `inferred`
+(`test_inference_is_declared_not_hidden`). The graph never enters the Evidence
+Graph (`test_design_never_enters_the_evidence_graph`), partial models yield
+smaller graphs rather than errors, and a new structural facet is one
+registration (`test_new_extractor_needs_only_registration`).
 
 ## Collaborative Investigation Platform (M10): portable investigations
 

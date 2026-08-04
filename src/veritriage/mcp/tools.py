@@ -817,3 +817,202 @@ def _project_debug_strategy(services: WorkspaceServices, arguments: dict[str, An
         "historical_success": plan.historical_success,
         "sources": plan.sources,
     }
+
+
+# --- Design Intelligence tools (M15) ----------------------------------------
+
+_ROOT_ARG = {
+    "type": "object",
+    "properties": {
+        "root": {"type": "string", "description": "Project root or manifest path (default '.')."}
+    },
+}
+
+
+def _root(arguments: dict[str, Any]) -> Path:
+    return Path(str(arguments.get("root", ".")))
+
+
+@register_tool(
+    "describe_module",
+    "One structural element of the design (module, IP, interface, UVM "
+    "component) and every typed relationship one hop around it, each naming "
+    "the project-model field it was derived from.",
+    {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string", "description": "Module, IP, interface, or component name."},
+            "root": {"type": "string", "description": "Project root (default '.')."},
+        },
+        "required": ["name"],
+    },
+)
+def _describe_module(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    found = services.describe_module(str(arguments["name"]), _root(arguments))
+    if found is None:
+        raise KeyError(f"No design element named {arguments['name']!r}")
+    return found
+
+
+@register_tool(
+    "show_hierarchy",
+    "The DUT instantiation tree, resolved from the project model's parent "
+    "declarations rather than from name matching.",
+    {
+        "type": "object",
+        "properties": {
+            "top": {"type": "string", "description": "Root module (defaults to the DUT top)."},
+            "root": {"type": "string", "description": "Project root (default '.')."},
+        },
+    },
+)
+def _show_hierarchy(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    top = arguments.get("top")
+    return services.design_hierarchy(_root(arguments), str(top) if top else None)
+
+
+@register_tool(
+    "trace_dependency",
+    "What a structural element depends on and what depends on it, traced "
+    "through the Design Graph.",
+    {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string", "description": "Element to trace."},
+            "root": {"type": "string", "description": "Project root (default '.')."},
+        },
+        "required": ["name"],
+    },
+)
+def _trace_dependency(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    query = services.design_query(_root(arguments))
+    if query is None:
+        raise KeyError("This project has no design model to trace")
+    name = str(arguments["name"])
+    return {
+        "name": name,
+        "depends_on": [n.name for n in query.dependencies_of(name)],
+        "depended_on_by": [n.name for n in query.dependents_of(name)],
+    }
+
+
+@register_tool(
+    "find_interface_owner",
+    "Which UVM agent owns an interface, and everything observing it. The "
+    "question the platform previously answered with substring matching.",
+    {
+        "type": "object",
+        "properties": {
+            "interface": {"type": "string", "description": "Interface name."},
+            "root": {"type": "string", "description": "Project root (default '.')."},
+        },
+        "required": ["interface"],
+    },
+)
+def _find_interface_owner(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    query = services.design_query(_root(arguments))
+    if query is None:
+        raise KeyError("This project has no design model")
+    interface = str(arguments["interface"])
+    owner = query.owner_of(interface)
+    return {
+        "interface": interface,
+        "owner": owner.qualified_name or owner.name if owner is not None else None,
+        "observers": [n.name for n in query.observers_of(interface)],
+    }
+
+
+@register_tool(
+    "clock_domain_view",
+    "The project's clock domains, which modules live in each, and where two "
+    "communicating modules do not share a clock.",
+    _ROOT_ARG,
+)
+def _clock_domain_view(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    query = services.design_query(_root(arguments))
+    if query is None:
+        raise KeyError("This project has no design model")
+    graph = query.graph
+    from veritriage.design import DesignRelation, NodeKind
+
+    return {
+        "domains": [
+            {
+                "name": domain.name,
+                "modules": sorted(
+                    n.name
+                    for n in graph.sources(domain.id, DesignRelation.CLOCKED_BY)
+                    if n.kind is NodeKind.MODULE
+                ),
+            }
+            for domain in sorted(graph.of_kind(NodeKind.CLOCK_DOMAIN), key=lambda n: n.name)
+        ],
+        "crossings": [
+            {"left": left.name, "right": right.name} for left, right in query.crossings()
+        ],
+    }
+
+
+@register_tool(
+    "verification_topology",
+    "Who watches what: UVM components and VIPs resolved to the interfaces they "
+    "monitor, drive, or predict, through the graph rather than by name.",
+    _ROOT_ARG,
+)
+def _verification_topology(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    query = services.design_query(_root(arguments))
+    if query is None:
+        raise KeyError("This project has no design model")
+    graph = query.graph
+    from veritriage.design import DesignRelation, NodeKind
+
+    rows = []
+    for node in sorted(
+        graph.of_kind(NodeKind.UVM_COMPONENT, NodeKind.VIP), key=lambda n: n.name
+    ):
+        for edge in graph.edges_from(
+            node.id,
+            DesignRelation.MONITORS,
+            DesignRelation.DRIVES,
+            DesignRelation.PREDICTS,
+        ):
+            rows.append(
+                {
+                    "component": node.qualified_name or node.name,
+                    "type": node.attributes.get("type", node.kind.value),
+                    "relation": edge.relation.value,
+                    "interface": graph.nodes[edge.target_id].name,
+                }
+            )
+    return rows
+
+
+@register_tool(
+    "affected_region",
+    "The design neighbourhood around an investigation's failing scopes: the "
+    "modules, domains, interfaces, and verification components implicated by "
+    "where the evidence pointed.",
+    _SESSION_ARG,
+)
+def _affected_region(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    session = _require_session(services, arguments)
+    region = services.affected_design_region(session)
+    if not region:
+        raise KeyError(
+            f"Session {session.session_id!r} carries no design context "
+            "(no project model was supplied)"
+        )
+    return region
+
+
+@register_tool(
+    "protocol_map",
+    "Which protocols this project speaks and on which interfaces, resolved "
+    "against the Knowledge Packs.",
+    _ROOT_ARG,
+)
+def _protocol_map(services: WorkspaceServices, arguments: dict[str, Any]) -> Any:
+    query = services.design_query(_root(arguments))
+    if query is None:
+        raise KeyError("This project has no design model")
+    return query.protocol_map()

@@ -307,6 +307,99 @@ def plan(
 
 
 @app.command()
+def design(
+    root: Path = typer.Argument(Path("."), help="Project root or manifest path."),
+    module: Optional[str] = typer.Option(
+        None, "--module", help="Describe one element and everything one hop around it."
+    ),
+) -> None:
+    """Show the structural understanding of a project (the Design Graph)."""
+    services = WorkspaceServices()
+    graph = services.design_graph(root)
+    if graph is None:
+        _err.print(
+            f"[yellow]warning:[/yellow] no project model at {escape(str(root))}; "
+            "add a *.vproj.json manifest to give VeriTriage structure."
+        )
+        raise typer.Exit(code=0)
+
+    if module:
+        described = services.describe_module(module, root)
+        if described is None:
+            _err.print(f"[red]error:[/red] no design element named {escape(module)}")
+            raise typer.Exit(code=2)
+        node = described["node"]
+        console.print(
+            Panel(
+                f"[bold]{escape(node['name'])}[/bold]  [dim]{node['kind']}[/dim]\n"
+                + (f"path: {escape(node['qualified_name'])}\n" if node.get("qualified_name") else "")
+                + (f"owner: {escape(node['owner'])}\n" if node.get("owner") else "")
+                + (f"source: {escape(node['source_file'])}" if node.get("source_file") else ""),
+                title="Design element",
+                border_style="blue",
+            )
+        )
+        table = Table(title="Relationships")
+        for column in ("Direction", "Relation", "Other", "Derived from"):
+            table.add_column(column)
+        for relation in described["relations"]:
+            table.add_row(
+                relation["direction"],
+                relation["relation"] + (" [dim](inferred)[/dim]" if relation["inferred"] else ""),
+                relation["other"],
+                relation["rationale"],
+            )
+        console.print(table)
+        raise typer.Exit(code=0)
+
+    stats = graph.stats()
+    console.print(
+        Panel(
+            f"[bold]{len(graph.nodes)}[/bold] structural nodes, "
+            f"[bold]{len(graph.edges)}[/bold] typed relationships\n"
+            f"[dim]{escape(graph.fingerprint())}[/dim]",
+            title=f"Design Graph · {graph.project_id}",
+            border_style="blue",
+        )
+    )
+
+    hierarchy = services.design_hierarchy(root)
+    if hierarchy:
+        console.print("\n[bold]Hierarchy[/bold]")
+        for row in hierarchy:
+            console.print(f"  {'  ' * row['depth']}{escape(row['name'])}")
+
+    query = services.design_query(root)
+    protocols = query.protocol_map() if query else {}
+    if protocols:
+        table = Table(title="Protocol map")
+        table.add_column("Protocol")
+        table.add_column("Interfaces")
+        for protocol, interfaces in protocols.items():
+            table.add_row(protocol, ", ".join(interfaces))
+        console.print(table)
+
+    if query:
+        crossings = query.crossings()
+        if crossings:
+            console.print("\n[bold]Clock domain crossings[/bold]")
+            for left, right in crossings:
+                console.print(f"  [yellow]![/yellow] {escape(left.name)} <-> {escape(right.name)}")
+        unverified = query.unverified_modules()
+        if unverified:
+            console.print("\n[bold]Modules with no coverage or assertions declared[/bold]")
+            for node in unverified[:8]:
+                console.print(f"  [dim]-[/dim] {escape(node.name)}")
+
+    counts = Table(title="Graph composition")
+    counts.add_column("Kind")
+    counts.add_column("Count", justify="right")
+    for key, value in stats.items():
+        counts.add_row(key.replace("edge:", "-> "), str(value))
+    console.print(counts)
+
+
+@app.command()
 def agents() -> None:
     """List the registered domain specialists and reasoning providers."""
     from veritriage.agents import available_agents, available_providers

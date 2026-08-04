@@ -490,6 +490,127 @@
   </section>
   {% endif %}
 
+  {% if report.design and not report.design.is_empty %}
+  {% set dsg = report.design %}
+  <section>
+    <h2>Design Intelligence</h2>
+    <p class="lead">
+      Structural understanding of the system this run exercised, derived from the project
+      model: {{ dsg.node_count }} elements joined by {{ dsg.edge_count }} typed
+      relationships. Every relationship names the field it came from.
+    </p>
+    {% if dsg.affected_region %}
+    <div class="card">
+      <h3>Affected Design Region</h3>
+      <div class="graph-scroll">
+      <table>
+        <thead><tr><th>Element</th><th>Kind</th><th>Path</th><th>Owner</th></tr></thead>
+        <tbody>
+        {% for node in dsg.affected_region %}
+          <tr>
+            <td>{{ node.name }}</td>
+            <td><span class="chip">{{ node.kind | replace("_", " ") }}</span></td>
+            <td>{{ node.qualified_name or "-" }}</td>
+            <td>{{ node.owner or "-" }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% if dsg.affected_relations %}
+      <h4>How it hangs together</h4>
+      <ul class="steps">
+        {% for rel in dsg.affected_relations %}
+        <li>{{ rel.source }} <strong>{{ rel.relation | replace("_", " ") }}</strong> {{ rel.target }}
+          <span style="display:block; color: var(--muted); font-size: 12.5px;">{{ rel.rationale }}{% if rel.inferred %} (inferred){% endif %}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if dsg.hierarchy %}
+    <div class="card">
+      <h3>Hierarchy View</h3>
+      <pre class="snippet">{% for row in dsg.hierarchy %}{{ "  " * row.depth }}{{ row.name }}{% if row.owner %}   [{{ row.owner }}]{% endif %}
+{% endfor %}</pre>
+    </div>
+    {% endif %}
+
+    {% if dsg.verification_components %}
+    <div class="card">
+      <h3>Verification Components</h3>
+      <div class="graph-scroll">
+      <table>
+        <thead><tr><th>Component</th><th>Type</th><th>Relationship</th><th>Interface</th></tr></thead>
+        <tbody>
+        {% for row in dsg.verification_components %}
+          <tr>
+            <td>{{ row.component }}</td>
+            <td>{{ row.type }}</td>
+            <td>{{ row.relation or "-" }}</td>
+            <td>{{ row.interface or "-" }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if dsg.clock_domains or dsg.protocol_map %}
+    <div class="card">
+      <h3>Clock Domains and Protocol Context</h3>
+      {% if dsg.clock_domains %}
+      <table>
+        <thead><tr><th>Clock domain</th><th>Modules</th></tr></thead>
+        <tbody>
+        {% for domain in dsg.clock_domains %}
+          <tr><td>{{ domain.name }}</td><td>{{ domain.modules | join(", ") or "-" }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+      {% if dsg.protocol_map %}
+      <h4>Protocol map</h4>
+      <ul class="steps">
+        {% for protocol, interfaces in dsg.protocol_map.items() %}
+        <li><strong>{{ protocol }}</strong>: {{ interfaces | join(", ") }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if dsg.dependencies %}
+    <div class="card">
+      <h3>Dependency Summary</h3>
+      <ul class="steps">
+        {% for rel in dsg.dependencies %}
+        <li>{{ rel.source }} depends on {{ rel.target }}
+          <span style="display:block; color: var(--muted); font-size: 12.5px;">{{ rel.rationale }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if dsg.risk_hotspots %}
+    <div class="card">
+      <h3>Risk Hotspots</h3>
+      <ul class="steps">
+        {% for risk in dsg.risk_hotspots %}
+        <li><strong>{{ risk.subject }}</strong>
+          <span style="display:block; color: var(--muted); font-size: 12.5px;">{{ risk.detail }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
   {% if report.plan and report.plan.steps %}
   {% set pl = report.plan %}
   <section>

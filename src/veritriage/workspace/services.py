@@ -28,6 +28,7 @@ if TYPE_CHECKING:
         LearningArtifact,
         LearningContext,
         DebugPlan,
+        DesignContext,
         LearningStatistics,
         LogAnnotationView,
         PlanProgress,
@@ -386,6 +387,80 @@ class WorkspaceServices:
 
         plan = session.report.plan or self.build_investigation_plan(session)
         return plan_progress(plan, session.graph)
+
+    # --- Design Intelligence (M15) -----------------------------------------
+    #
+    # The Design Graph is derived from the Project Model, so these methods build
+    # it on demand from the cached model. Nothing here reads source: only a
+    # ProjectProvider may, and that law stays in M11.
+
+    def design_graph(self, root: Path | None = None):
+        """The structural graph for a project root, or None without a model."""
+        from veritriage.design import build_design_graph
+
+        model = self.load_project_model(root or Path(".")) or self.build_project_model(
+            root or Path(".")
+        )
+        if model.is_empty:
+            return None
+        graph = build_design_graph(model)
+        return None if graph.is_empty else graph
+
+    def design_context(self, session: InvestigationSession) -> "DesignContext | None":
+        """The design context attached to a session's report, if any."""
+        return session.report.design
+
+    def design_query(self, root: Path | None = None):
+        """A DesignQuery over the project's structure, or None without a model."""
+        from veritriage.design import DesignQuery
+
+        graph = self.design_graph(root)
+        return DesignQuery(graph) if graph is not None else None
+
+    def describe_module(self, name: str, root: Path | None = None) -> dict | None:
+        """One structural element and everything one hop around it."""
+        query = self.design_query(root)
+        if query is None:
+            return None
+        node = query.resolve_scope(name)
+        if node is None:
+            return None
+        graph = query.graph
+        return {
+            "node": node.model_dump(mode="json"),
+            "relations": [
+                {
+                    "relation": e.relation.value,
+                    "other": (
+                        graph.nodes[e.target_id].name
+                        if e.source_id == node.id
+                        else graph.nodes[e.source_id].name
+                    ),
+                    "direction": "out" if e.source_id == node.id else "in",
+                    "rationale": e.rationale,
+                    "inferred": e.inferred,
+                }
+                for e in graph.edges
+                if node.id in (e.source_id, e.target_id)
+            ],
+        }
+
+    def design_hierarchy(self, root: Path | None = None, top: str | None = None) -> list[dict]:
+        """The instantiation tree as flat, renderable rows."""
+        query = self.design_query(root)
+        if query is None:
+            return []
+        return [
+            {"depth": depth, "name": node.name, "kind": node.kind.value, "node_id": node.id}
+            for depth, node in query.hierarchy(top)
+        ]
+
+    def affected_design_region(self, session: InvestigationSession) -> list[dict]:
+        """The design neighbourhood around a session's failing scopes."""
+        context = session.report.design
+        if context is None:
+            return []
+        return [n.model_dump(mode="json") for n in context.affected_region]
 
     def save(self, session: InvestigationSession) -> Path:
         return self._store.save(session)

@@ -26,7 +26,11 @@ reliability, and project memory, all derived deterministically and all linked
 back to the investigations they were learned from. Finally a **Planning
 Engine** turns all of it into a structured, branching investigation plan:
 what to inspect next, what evidence would confirm or reject each hypothesis,
-what it costs, and how you will know when you are done.
+what it costs, and how you will know when you are done. A **Design
+Intelligence Engine** underpins all of it with a structural understanding of
+the system: a Design Graph of modules, interfaces, clock and reset domains,
+address regions, and verification components, joined by typed relationships
+and derived deterministically from the project model.
 
 ```
 veritriage analyze simulation.log coverage.txt test_metadata.json
@@ -55,6 +59,8 @@ Regression failure
                                -> merged findings, agreement, conflict)
   -> Learn                    (recurring patterns, agent reliability, project
                                memory -> hints for the next investigation)
+  -> Locate structurally      (Design Graph: which modules, domains, agents and
+                               protocols the failure actually touches)
   -> Plan                     (derive a branching debug plan: ordered steps,
                                decision points, evidence still needed)
   -> Report                   (analysis.json + evidence_graph.json + report.html)
@@ -95,7 +101,11 @@ deterministic evidence, and
 [docs/PLANNING_ENGINE.md](docs/PLANNING_ENGINE.md) for the Planning Engine: why
 a plan is structurally different from a recommendation, how the Planner
 contributes structure without ever writing debug advice, and how branching
-stays deterministic without executing anything.
+stays deterministic without executing anything, and
+[docs/DESIGN_INTELLIGENCE.md](docs/DESIGN_INTELLIGENCE.md) for Design
+Intelligence: why the Design Graph is derived from the Project Model rather
+than extracted from source, why it is a third graph beside Evidence and
+Knowledge, and how structural questions become deterministic traversals.
 
 ## Installation
 
@@ -168,8 +178,16 @@ veritriage plan simulation.log                             # print the investiga
 veritriage analyze simulation.log -o out/                  # planning on by default
 veritriage analyze simulation.log --no-plan -o out/        # opt out
 
+# Design Intelligence: understand the system, not just the run. A Design Graph
+# derived from the project model (never from source: only a ProjectProvider
+# reads source) that answers structural questions deterministically. Which
+# agent owns this interface? What crosses this clock boundary? What depends on
+# this configuration?
+veritriage design .                                        # the structural graph
+veritriage design . --module l2_cache                      # one element and its relationships
+
 # Workspace and MCP: VeriTriage as an external investigation service.
-# `veritriage mcp` serves 43 investigation tools over stdio, so Claude Code,
+# `veritriage mcp` serves 51 investigation tools over stdio, so Claude Code,
 # Cursor, or any MCP host can analyze regressions, walk evidence, search the
 # knowledge base, and query history: the CLI and MCP share the same services.
 veritriage mcp                                             # MCP tool server (stdio)
@@ -214,7 +232,7 @@ Each run writes three artifacts to the output directory:
 
 | File | Contents |
 |---|---|
-| `analysis.json` | Classification, confidence, evidence (with graph node IDs), reasoning, agent findings, learned hints, the investigation plan, historical context, run summary, graph stats |
+| `analysis.json` | Classification, confidence, evidence (with graph node IDs), reasoning, agent findings, learned hints, the affected design region, the investigation plan, historical context, run summary, graph stats |
 | `evidence_graph.json` | The full serialized Evidence Graph: every node and relationship |
 | `report.html` | Self-contained EDA-style dashboard (light/dark), hypotheses, agent findings, what prior investigations suggest, the recommended investigation with its decision tree, historical context, evidence timeline, next steps |
 
@@ -274,8 +292,9 @@ untouched by design
 As of v1.0.0 the core is stable and its public API (WorkspaceServices, the MCP
 tool table, the orchestrator step/profile registries, the `.vtb` bundle format,
 since v1.8.0 the `Agent` / `ReasoningProvider` contracts, since v1.9.0 the
-`Learner` / `LearningArtifact` contracts, and since v1.10.0 the `StepSource` /
-`DebugPlan` contracts) is frozen; future
+`Learner` / `LearningArtifact` contracts, since v1.10.0 the `StepSource` /
+`DebugPlan` contracts, and since v1.11.0 the `StructureExtractor` / `DesignGraph`
+contracts) is frozen; future
 work is integrations over existing seams: AI providers (Claude, GPT, Gemini,
 local models, MCP-hosted reasoners) as `ReasoningProvider` implementations
 behind the M12 seam -> a VS Code

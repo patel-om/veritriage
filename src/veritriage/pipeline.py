@@ -25,6 +25,7 @@ from veritriage.engineering import (
     stored_context,
 )
 from veritriage.agents import AgentCoordinator, build_agent_context
+from veritriage.design import build_design_graph, build_design_view
 from veritriage.planning import Planner, PlanningContext
 from veritriage.graph.builder import GraphBuilder
 from veritriage.graph.graph import EvidenceGraph
@@ -171,6 +172,13 @@ def analyze(
     # reads correlations and hypotheses and only attaches structure.
     if project is not None:
         report.project = build_project_view(project, graph, report)
+        # Design Intelligence derives the structural graph from the project
+        # model and never from source. Like the project model itself it is a
+        # lens over the Evidence Graph, never part of it. Built before the
+        # agents run, so a specialist can ask a structural question.
+        design_graph = build_design_graph(project)
+        if not design_graph.is_empty:
+            report.design = build_design_view(design_graph, graph)
     # The Agent Framework runs last, over the finished deterministic result: it
     # is a second opinion, not a stage of the pipeline's conclusion path. It
     # reads the report and the graph and writes only report.agents.
@@ -190,6 +198,7 @@ def analyze(
                 engineering=report.engineering,
                 history=report.history,
                 learning=learning,
+                design=report.design,
             )
         )
         report.agents = None if assessment.is_empty else assessment

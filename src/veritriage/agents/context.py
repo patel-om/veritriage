@@ -23,6 +23,7 @@ from veritriage.models import (
     ClassificationResult,
     EngineeringContextView,
     HistoricalContext,
+    DesignContext,
     KnowledgeContext,
     LearningContext,
     LearningHint,
@@ -65,6 +66,10 @@ class AgentContext(BaseModel):
     waveform: WaveformContext | None = None
     engineering: EngineeringContextView | None = None
     history: HistoricalContext | None = None
+    #: The structural understanding of the system (M15). Plain data: the agents
+    #: package never imports the design package, exactly as it never imports
+    #: learning. A specialist gains structure; it stays deterministic.
+    design: DesignContext | None = None
     #: What the Learning Engine recalled for this run (M13). Plain data: the
     #: agents package never imports the learning package, exactly as reasoning
     #: never imports knowledge. Agents gain memory; they stay deterministic,
@@ -104,6 +109,14 @@ class AgentContext(BaseModel):
     def signals_with_prefix(self, prefix: str) -> list[ReasoningSignal]:
         """Every signal whose name starts with ``prefix`` (subsystem grouping)."""
         return [s for s in self.reasoning.signals if s.name.startswith(prefix)]
+
+    # --- Structural queries (M15) -------------------------------------------
+
+    def design_region(self) -> list[str]:
+        """Design elements around this failure, empty without a project model."""
+        if self.design is None:
+            return []
+        return [n.name for n in self.design.affected_region]
 
     # --- Learned memory (M13) -----------------------------------------------
     #
@@ -167,6 +180,7 @@ def build_agent_context(
     engineering: EngineeringContextView | None = None,
     history: HistoricalContext | None = None,
     learning: LearningContext | None = None,
+    design: DesignContext | None = None,
 ) -> AgentContext:
     """Assemble the frozen context the Coordinator hands to every agent."""
     return AgentContext(
@@ -180,4 +194,5 @@ def build_agent_context(
         engineering=engineering,
         history=history,
         learning=learning,
+        design=design,
     )
